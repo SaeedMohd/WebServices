@@ -1,4 +1,4 @@
-import pypyodbc
+import pyodbc
 
 
 class DbConnection:
@@ -11,10 +11,9 @@ class DbConnection:
         self.dbName = dbName
 
     def connect(self):
-        self.connection = pypyodbc.connect(
-            'Driver={SQL Server};Server=' + self.host + ';Database=' + self.dbName + ';uid=' + self.username + ';pwd=' + self.pwd)
+        self.connection = pyodbc.connect("DRIVER={ODBC Driver 17 for SQL "
+                                         "Server};Server=localhost,1401;Database=Inspection;uid=SA;pwd=InspectionDoesntHaveAStrongRootPass9211@")
         return self.connection
 
     def disconnect(self):
         self.connection.close()
-
