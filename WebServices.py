@@ -13,7 +13,8 @@ def myconverter(o):
 
 app = Flask(__name__)
 
-dbConnection = DbConnection('192.168.75.2', 'AARMaster', 'devsherif', 'f656dd76aed7d46914DF')
+# "Server};Server=localhost,1401;Database=Inspection;uid=SA;pwd=InspectionDoesntHaveAStrongRootPass9211@")
+dbConnection = DbConnection('localhost', '1401', 'Inspection', 'SA', 'InspectionDoesntHaveAStrongRootPass9211@')
 connection = dbConnection.connect()
 
 counter = 0
@@ -50,6 +51,36 @@ def queryDb(queryString):
         connection = dbConnection.connect()
         counter += 1
         queryDb(queryString)
+
+def queryCsiDB(queryString):
+    dbConnection2 = DbConnection('192.168.75.1', '1433', 'CSI', 'devsherif', 'Xirah4Lishe8ahFae9ze')
+    conn = dbConnection2.connect()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(queryString)
+        resultDict = []
+        columns = [column[0] for column in cursor.description]
+        lowerColumns = []
+        for column in columns:
+            lowerColumns.append(column.lower())
+        for row in cursor.fetchall():
+            resultDict.append(dict(zip(lowerColumns, row)))
+        cursor.close()
+        counter = 0
+        return dumps(resultDict, default=myconverter)
+    except Exception as e:
+        print("the error retrieved is:" + str(e))
+        return str(e)
+        if "Attempt to use a closed connection" not in str(e) and "Connection not open" not in str(
+                e) and "Communication link failure" not in str(e):
+            conn.close()
+        connection = dbConnection.connect()
+        counter += 1
+        queryDb(queryString)
+
+@app.route('/getAllFacilities')
+def getAllFacilities():
+    return queryCsiDB("select * from csi.dbo.aaafacilities where acnm = 'aaaphone'")
 
 
 @app.route('/getFacilities')
