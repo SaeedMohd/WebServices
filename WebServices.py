@@ -82,6 +82,19 @@ def queryCsiDB(queryString):
 def getAllFacilities():
     return queryCsiDB("select * from csi.dbo.aaafacilities where acnm = 'aaaphone'")
 
+@app.route('/getClubCodes')
+def getClubCodes():
+    clubCodeQuery = str(request.args.get('clubCode'))
+    queryString = "SELECT distinct(RIGHT('00'+ CONVERT(VARCHAR,clubcode),3)) AS clubcodes FROM aaafacilities a where acnm = 'aaaphone' and active = 1"
+    if clubCodeQuery is not None:
+        queryString += " and RIGHT('00'+ CONVERT(VARCHAR,clubcode),3) like '"+clubCodeQuery+"%'"
+    queryString += " order by 1"
+    return queryCsiDB(queryString)
+
+@app.route('/getSpecialistNameFromEmail')
+def getSpecialistNameFromEmail():
+    userEmail = str(request.args.get('specialistEmail')).lower()
+    return queryCsiDB("select clubcode, specialistName from aaaspecialist where acnm = 'aaaphone' and lower(specialistemail) = lower('"+userEmail+"')")
 
 @app.route('/getFacilities')
 def getFacilities():
