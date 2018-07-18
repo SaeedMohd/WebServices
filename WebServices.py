@@ -2,7 +2,7 @@ from flask import Flask
 from flask import request
 from json import dumps
 import datetime
-import jsonify
+
 from static.DbConnection import DbConnection
 
 
@@ -80,21 +80,37 @@ def queryCsiDB(queryString):
 
 @app.route('/getAllFacilities')
 def getAllFacilities():
-    return queryCsiDB("select * from csi.dbo.aaafacilities where acnm = 'aaaphone'")
+    return queryCsiDB("select clubcode, facnum, facname from csi.dbo.AAAFacilities where acnm = 'aaaphone' and active = 1")
+
+@app.route('/getAllSpecialists')
+def getAllSpecialists():
+    # return queryCsiDB("select id, AccSpecID, specialistName from csi.dbo.aaaspecialist where acnm = 'aaaphone'")
+    return queryCsiDB("exec csi.dbo.ACE_Specialists")
 
 @app.route('/getClubCodes')
 def getClubCodes():
     clubCodeQuery = str(request.args.get('clubCode'))
-    queryString = "SELECT distinct(RIGHT('00'+ CONVERT(VARCHAR,clubcode),3)) AS clubcodes FROM aaafacilities a where acnm = 'aaaphone' and active = 1"
+    queryString = "SELECT distinct(RIGHT('00'+ CONVERT(VARCHAR,clubcode),3)) AS clubcode FROM aaafacilities a where acnm = 'aaaphone' and active = 1"
     if clubCodeQuery is not None:
         queryString += " and RIGHT('00'+ CONVERT(VARCHAR,clubcode),3) like '"+clubCodeQuery+"%'"
     queryString += " order by 1"
     return queryCsiDB(queryString)
 
+
 @app.route('/getSpecialistNameFromEmail')
 def getSpecialistNameFromEmail():
-    userEmail = str(request.args.get('specialistEmail')).lower()
-    return queryCsiDB("select clubcode, specialistName from aaaspecialist where acnm = 'aaaphone' and lower(specialistemail) = lower('"+userEmail+"')")
+    specialistEmail = request.args.get('specialistEmail')
+    return queryCsiDB("select clubcode, specialistName from csi.dbo.aaaspecialist where acnm = 'aaaphone' and lower(specialistemail) = lower('"+specialistEmail+"')")
+
+@app.route('/getVisitationPlanningList')
+def getVisitationPlanningList():
+    facilityName = request.args.get('facilityName')
+    month = request.args.get('month')
+    year = request.args.get('year')
+    if facilityName is not None and len(facilityName) > 0:
+        return queryCsiDB("select FacNum, facname, joindate from csi.dbo.aaafacilities where facname = '"+facilityName+"' and month(JoinDate) = "+month+" and year(JoinDate) < "+year)
+    else:
+        return queryCsiDB("select FacNum, facname, joindate from csi.dbo.aaafacilities where month(JoinDate) = " + month + " and year(JoinDate) < " + year)
 
 @app.route('/getFacilities')
 def getFacilities():
