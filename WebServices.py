@@ -123,6 +123,18 @@ def getFacilityWithId():
     facilityId = request.args.get('facilityId')
     return queryDb("select * from tblFacilities$ where active = 1 and facId = " + facilityId)
 
+@app.route('/getFacilitiesWithFilters')
+def getFacilitiesWithFilters():
+    facilityNumber = request.args.get('facilityNumber')
+    clubCode = request.args.get('clubCode')
+    dba = request.args.get('dba')
+    entityName = request.args.get('entityName')
+    assignedSpecialist = request.args.get('assignedSpecialist')
+    contractStatus = request.args.get('contractStatus')
+    return queryDb("select * from tblFacilities$ where active = " + contractStatus + " and facilityNumber "
+    "like '%" + facilityNumber + "%' and clubCode like '%" + clubCode + "%' and dba like '%" + dba + "%' and entityName "
+    "like '%" + entityName + "%' and assignedSpecialist like '%" + assignedSpecialist + "%'")
+
 
 @app.route('/getFacilityHours')
 def getFacilityHours():
