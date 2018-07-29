@@ -52,6 +52,7 @@ def queryDb(queryString):
         counter += 1
         queryDb(queryString)
 
+
 def queryCsiDB(queryString):
     dbConnection2 = DbConnection('192.168.75.1', '1433', 'CSI', 'devsherif', 'Xirah4Lishe8ahFae9ze')
     conn = dbConnection2.connect()
@@ -78,21 +79,25 @@ def queryCsiDB(queryString):
         counter += 1
         queryDb(queryString)
 
+
 @app.route('/getAllFacilities')
 def getAllFacilities():
-    return queryCsiDB("select clubcode, facnum, facname from csi.dbo.AAAFacilities where acnm = 'aaaphone' and active = 1")
+    return queryCsiDB(
+        "select clubcode, facnum, facname from csi.dbo.AAAFacilities where acnm = 'aaaphone' and active = 1")
+
 
 @app.route('/getAllSpecialists')
 def getAllSpecialists():
     # return queryCsiDB("select id, AccSpecID, specialistName from csi.dbo.aaaspecialist where acnm = 'aaaphone'")
     return queryCsiDB("exec csi.dbo.ACE_Specialists")
 
+
 @app.route('/getClubCodes')
 def getClubCodes():
     clubCodeQuery = str(request.args.get('clubCode'))
     queryString = "SELECT distinct(RIGHT('00'+ CONVERT(VARCHAR,clubcode),3)) AS clubcode FROM aaafacilities a where acnm = 'aaaphone' and active = 1"
     if clubCodeQuery is not None:
-        queryString += " and RIGHT('00'+ CONVERT(VARCHAR,clubcode),3) like '"+clubCodeQuery+"%'"
+        queryString += " and RIGHT('00'+ CONVERT(VARCHAR,clubcode),3) like '" + clubCodeQuery + "%'"
     queryString += " order by 1"
     return queryCsiDB(queryString)
 
@@ -100,7 +105,9 @@ def getClubCodes():
 @app.route('/getSpecialistNameFromEmail')
 def getSpecialistNameFromEmail():
     specialistEmail = request.args.get('specialistEmail')
-    return queryCsiDB("select clubcode, specialistName from csi.dbo.aaaspecialist where acnm = 'aaaphone' and lower(specialistemail) = lower('"+specialistEmail+"')")
+    return queryCsiDB(
+        "select clubcode, specialistName from csi.dbo.aaaspecialist where acnm = 'aaaphone' and lower(specialistemail) = lower('" + specialistEmail + "')")
+
 
 @app.route('/getVisitationPlanningList')
 def getVisitationPlanningList():
@@ -108,9 +115,12 @@ def getVisitationPlanningList():
     month = request.args.get('month')
     year = request.args.get('year')
     if facilityName is not None and len(facilityName) > 0:
-        return queryCsiDB("select FacNum, facname, joindate from csi.dbo.aaafacilities where facname = '"+facilityName+"' and month(JoinDate) = "+month+" and year(JoinDate) < "+year)
+        return queryCsiDB(
+            "select FacNum, facname, joindate from csi.dbo.aaafacilities where facname = '" + facilityName + "' and month(JoinDate) = " + month + " and year(JoinDate) < " + year)
     else:
-        return queryCsiDB("select FacNum, facname, joindate from csi.dbo.aaafacilities where month(JoinDate) = " + month + " and year(JoinDate) < " + year)
+        return queryCsiDB(
+            "select FacNum, facname, joindate from csi.dbo.aaafacilities where month(JoinDate) = " + month + " and year(JoinDate) < " + year)
+
 
 @app.route('/getFacilities')
 def getFacilities():
@@ -123,17 +133,20 @@ def getFacilityWithId():
     facilityId = request.args.get('facilityId')
     return queryDb("select * from tblFacilities$ where active = 1 and facId = " + facilityId)
 
+
 @app.route('/getFacilitiesWithFilters')
 def getFacilitiesWithFilters():
     facilityNumber = request.args.get('facilityNumber')
     clubCode = request.args.get('clubCode')
     dba = request.args.get('dba')
-    entityName = request.args.get('entityName')
     assignedSpecialist = request.args.get('assignedSpecialist')
     contractStatus = request.args.get('contractStatus')
-    return queryDb("select * from tblFacilities$ where active = " + contractStatus + " and facilityNumber "
-    "like '%" + facilityNumber + "%' and clubCode like '%" + clubCode + "%' and dba like '%" + dba + "%' and entityName "
-    "like '%" + entityName + "%' and assignedSpecialist like '%" + assignedSpecialist + "%'")
+    queryString = "select RIGHT('00'+ CONVERT(VARCHAR,clubcode),3) as clubcode, facName, facNum from csi.dbo.aaafacilities where acnm = 'aaaphone' and active = " + contractStatus + " and RIGHT('00'+ CONVERT(VARCHAR,clubcode),3) like '%" + clubCode + "%' and facName like '%" + dba + "%'"
+    if len(facilityNumber) > 0:
+        queryString += str(" and facNum like '%" + facilityNumber + "%'")
+    if len(assignedSpecialist) > 0:
+        queryString += str(" and specialistid = " + assignedSpecialist)
+    return queryCsiDB(queryString)
 
 
 @app.route('/getFacilityHours')
@@ -266,7 +279,7 @@ def getAnnualVisitations():
         queryString += " and month(dateOfInspection) = " + month
 
     if specialistName is not None:
-        queryString += " and automotivespecialistname = '" + specialistName+"'"
+        queryString += " and automotivespecialistname = '" + specialistName + "'"
 
     if isAnnualVisitation is not None:
         if isAnnualVisitation:
