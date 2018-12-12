@@ -1,4 +1,5 @@
 # web.wsgi
+#!/usr/bin/python
 import sys
 
 #Expand Python classes path with your app's path

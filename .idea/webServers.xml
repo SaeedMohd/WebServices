@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="7c46a436-a25d-4bb2-ac77-39862513d5be" name="AnthonyLinux" url="http://144.217.24.163">
+        <fileTransfer host="144.217.24.163" port="2200" accessType="SFTP">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" />
+          </advancedOptions>
+          <option name="port" value="2200" />
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>
