@@ -87,6 +87,12 @@ def getAllFacilities():
     return queryCsiDB(
         "select clubcode, facnum, facname from csi.dbo.AAAFacilities where acnm = 'aaaphone' and active = 1")
 
+@app.route('/getFacilityData')
+def getFacilityData():
+    facnum = request.args.get('facnum')
+    clubcode = request.args.get('clubcode')
+    return str(
+        inspectionApis.getFacilityData(facnum, clubcode))
 
 @app.route('/getAllSpecialists')
 def getAllSpecialists():

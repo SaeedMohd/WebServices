@@ -479,3 +479,10 @@ class InspectionAPIs:
                insertDate + "</insertDate><insertBy>" + insertBy + \
                "</insertBy></requestXml></request></soapenv:Body></soapenv:Envelope> "
         return self.sendRequest(body)
+
+    def getFacilityData(self, facnum, clubcode):
+        body = "<?xml version=\"1.0\" encoding=\"utf-8\"?><soapenv:Envelope " \
+               "xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\"><soapenv:Header " \
+               "/><soapenv:Body><request><requestName>GetFacilityData</requestName><requestXml><facnum>"+facnum+"</facnum" \
+               "><clubcode>"+clubcode+"</clubcode></requestXml></request></soapenv:Body></soapenv:Envelope> "
+        return self.sendRequest(body)
