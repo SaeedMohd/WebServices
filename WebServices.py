@@ -388,8 +388,8 @@ def getFacilityComplaints():
 
 @app.route('/updatePaymentMethodsData')
 def updatePaymentMethodsData():
-    facNum = str(request.args.get('facNum'))
-    clubCode = str(request.args.get('clubCode'))
+    facNum = str(request.args.get('facnum'))
+    clubCode = str(request.args.get('clubcode'))
     paymentMethodID = str(request.args.get('paymentMethodID'))
     insertBy = str(request.args.get('insertBy'))
     insertDate = str(request.args.get('insertDate'))
@@ -584,14 +584,14 @@ def updateScopeOfServiceData():
                                                 insertBy, insertDate, updateBy, updateDate))
 
 
-@app.route('/updatevisitationTrackingData')
+@app.route('/updateVisitationTrackingData')
 def updateVisitationTrackingData():
-    facNum = str(request.args.get('facNum'))
-    clubCode = str(request.args.get('clubCode'))
-    visitationId = str(request.args.get('visitationId'))
+    facNum = str(request.args.get('facnum'))
+    clubCode = str(request.args.get('clubcode'))
+    visitationId = str(request.args.get('visitationID'))
     performedBy = str(request.args.get('performedBy'))
-    datePerformed = str(request.args.get('datePerformed'))
-    dateReceived = str(request.args.get('dateReceived'))
+    datePerformed = str(request.args.get('DatePerformed'))
+    dateReceived = str(request.args.get('DateReceived'))
     insertBy = str(request.args.get('insertBy'))
     insertDate = str(request.args.get('insertDate'))
     updateBy = str(request.args.get('updateBy'))
@@ -600,10 +600,11 @@ def updateVisitationTrackingData():
                                                            dateReceived, insertBy, insertDate, updateBy, updateDate))
 
 
-@app.route('/updateAARPortalAdminDate')
+@app.route('/updateAARPortalAdminData')
 def updateAARPortalAdminData():
     facNum = str(request.args.get('facNum'))
     clubCode = str(request.args.get('clubCode'))
+    facId = str(request.args.get('facId'))
     startDate = str(request.args.get('startDate'))
     endDate = str(request.args.get('endDate'))
     addendumSigned = str(request.args.get('addendumSigned'))
@@ -614,7 +615,7 @@ def updateAARPortalAdminData():
     updateDate = str(request.args.get('updateDate'))
     active = str(request.args.get('active'))
     return str(
-        inspectionApis.updateAARPortalAdminData(facNum, clubCode, startDate, endDate, addendumSigned, cardReaders,
+        inspectionApis.updateAARPortalAdminData(facNum, clubCode, facId, startDate, endDate, addendumSigned, cardReaders,
                                                 insertBy, insertDate, updateBy, updateDate, active))
 
 
@@ -898,13 +899,13 @@ def updateSurveySoftwaresData():
 
 @app.route('/updateVisitationDetailsData')
 def updateVisitationDetailsData():
-    facNum = str(request.args.get('facNum'))
-    clubCode = str(request.args.get('clubCode'))
-    staffTraining = str(request.args.get('staffTraining'))
-    qualityControl = str(request.args.get('qualityControl'))
-    aarSigns = str(request.args.get('aarSigns'))
-    certificateOfApproval = str(request.args.get('certificateOfApproval'))
-    memberBenefitPoster = str(request.args.get('memberBenefitPoster'))
+    facNum = str(request.args.get('facnum'))
+    clubCode = str(request.args.get('clubcode'))
+    staffTraining = str(request.args.get('StaffTraining'))
+    qualityControl = str(request.args.get('QualityControl'))
+    aarSigns = str(request.args.get('AARSigns'))
+    certificateOfApproval = str(request.args.get('CertificateOfApproval'))
+    memberBenefitPoster = str(request.args.get('MemberBenefitPoster'))
     insertBy = str(request.args.get('insertBy'))
     insertDate = str(request.args.get('insertDate'))
     updateBy = str(request.args.get('updateBy'))
@@ -984,6 +985,7 @@ def updateVehicleServices():
 def updateAARPortalTracking():
     facnum = str(request.args.get('facnum'))
     clubcode = str(request.args.get('clubcode'))
+    facId = str(request.args.get('facId'))
     trackingId = str(request.args.get('trackingId'))
     portalInspectionDate = str(request.args.get('portalInspectionDate'))
     loggedIntoPortal = str(request.args.get('loggedIntoPortal'))
@@ -996,7 +998,7 @@ def updateAARPortalTracking():
     updateDate = str(request.args.get('updateDate'))
     active = str(request.args.get('active'))
     return str(
-        inspectionApis.updateAARPortalTracking(facnum, clubcode, trackingId, portalInspectionDate, loggedIntoPortal,
+        inspectionApis.updateAARPortalTracking(facnum, clubcode, facId, trackingId, portalInspectionDate, loggedIntoPortal,
                                                numberUnacknowledgedTows, inProgressTows, inProgressWalkIns, insertBy,
                                                insertDate, updateBy, updateDate, active))
 
@@ -1009,7 +1011,6 @@ def updateVehicles():
     insertDate = str(request.args.get('insertDate'))
     insertBy = str(request.args.get('insertBy'))
     return str(inspectionApis.updateVehicles(facnum, clubcode, vehicleid, insertDate, insertBy))
-
 
 @app.route('/<path:path>')
 def catch_all(path):

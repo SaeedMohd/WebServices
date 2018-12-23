@@ -180,12 +180,12 @@ class InspectionAPIs:
                "</updateDate></requestXml></request></soapenv:Body></soapenv:Envelope> "
         return self.sendRequest(body)
 
-    def updateAARPortalAdminData(self, facNum, clubCode, startDate, endDate, addendumSigned, cardReaders,
+    def updateAARPortalAdminData(self, facNum, clubCode, facId, startDate, endDate, addendumSigned, cardReaders,
                                  insertBy, insertDate, updateBy, updateDate, active):
         body = "<?xml version=\"1.0\" encoding=\"utf-8\"?><soapenv:Envelope " \
                "xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\"><soapenv:Header/><soapenv:Body><request" \
                "><requestName>UpdateAARPortalAdminData</requestName><requestXml><facnum>" + facNum + \
-               "</facnum><clubcode>" + clubCode + "</clubcode><startDate>" + startDate + "</startDate><endDate>" + \
+               "</facnum><clubcode>" + clubCode + "</clubcode><FACID>" + facId + "</FACID><startDate>" + startDate + "</startDate><endDate>" + \
                endDate + "</endDate><AddendumSigned>" + addendumSigned + "</AddendumSigned><CardReaders>" + \
                cardReaders + "</CardReaders><insertBy>" + insertBy + "</insertBy><insertDate>" + insertDate + \
                "</insertDate><updateBy>" + updateBy + "</updateBy><updateDate>" + updateDate + \
@@ -454,13 +454,13 @@ class InspectionAPIs:
                "</insertBy></requestXml></request></soapenv:Body></soapenv:Envelope> "
         return self.sendRequest(body)
 
-    def updateAARPortalTracking(self, facnum, clubcode, trackingId, portalInspectionDate, loggedIntoPortal,
+    def updateAARPortalTracking(self, facnum, clubcode, facId, trackingId, portalInspectionDate, loggedIntoPortal,
                                 numberUnacknowledgedTows, inProgressTows, inProgressWalkIns,
                                 insertBy, insertDate, updateBy, updateDate, active):
         body = "<?xml version=\"1.0\" encoding=\"utf-8\"?><soapenv:Envelope " \
                "xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\"><soapenv:Header " \
                "/><soapenv:Body><request><requestName>UpdateAARPortalTracking</requestName><requestXml><facnum>" + \
-               facnum + "</facnum><clubcode>" + clubcode + "</clubcode><TrackingID>" + trackingId + \
+               facnum + "</facnum><clubcode>" + clubcode + "</clubcode><FACID>"+facId+"</FACID><TrackingID>" + trackingId + \
                "</TrackingID><PortalInspectionDate>" + portalInspectionDate + \
                "</PortalInspectionDate><LoggedIntoPortal>" + loggedIntoPortal + \
                "</LoggedIntoPortal><NumberUnacknowledgedTows>" + numberUnacknowledgedTows + \
@@ -486,3 +486,13 @@ class InspectionAPIs:
                "/><soapenv:Body><request><requestName>GetFacilityData</requestName><requestXml><facnum>"+facnum+"</facnum" \
                "><clubcode>"+clubcode+"</clubcode></requestXml></request></soapenv:Body></soapenv:Envelope> "
         return self.sendRequest(body)
+
+    def updateFacilityInfo(self, facNum, clubCode, businessName, busTypeId, entityName, assignToId, officeId,
+                                          taxIdNumber, facilityRepairOrderCount, facilityAnnualInspectionMonth,
+                                          inspectionCycle, timeZoneId, svcAvailability, facilityTypeId,
+                                          automotiveRepairNumber, automotiveRepairExpDate, contractCurrentDate,
+                                          contractInitialDate, billingMonth, billingAmount, internetAccess, webSite,
+                                          terminationDate, terminationId, terminationComments, insertBy, insertDate,
+                                          updateBy, updateDate, active, achParticipant, insuranceExpDate,
+                                          contractTypeId):
+        body = ""
