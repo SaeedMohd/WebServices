@@ -147,7 +147,7 @@ class InspectionAPIs:
                                     rsp_userName, rsp_email, rsp_phone):
         body = "<?xml version=\"1.0\" encoding=\"utf-8\"?><soapenv:Envelope " \
                "xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\"><soapenv:Header/><soapenv:Body><request" \
-               "><requestName>UpdateFacilityPhoneData</requestName><requestXml><facnum>" + facNum + \
+               "><requestName>updateFacilityPersonnelData</requestName><requestXml><facnum>" + facNum + \
                "</facnum><clubcode>" + clubCode + "</clubcode><PersonnelID>" + personnelId + \
                "</PersonnelID><PersonnelTypeID>" + personnelTypeId + "</PersonnelTypeID><FirstName>" + firstName + \
                "</FirstName><LastName>" + lastName + "</LastName><SeniorityDate>" + seniorityDate + \
