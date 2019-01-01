@@ -890,8 +890,8 @@ def updatePersonnelCertification():
 
 @app.route('/updateFacilityPersonnelSignerData')
 def updateFacilityPersonnelSignerData():
-    facnum = str(request.args.get('facnum'))
-    clubcode = str(request.args.get('clubcode'))
+    facnum = str(request.args.get('facNum'))
+    clubcode = str(request.args.get('clubCode'))
     personnelId = str(request.args.get('personnelId'))
     addr1 = str(request.args.get('addr1'))
     addr2 = str(request.args.get('addr2'))
