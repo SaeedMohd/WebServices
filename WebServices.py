@@ -1,91 +1,36 @@
 from flask import Flask
 from flask import request
-from json import dumps
+import random
 from InspectionAPIs import InspectionAPIs
 import datetime
-
-from static.DbConnection import DbConnection
-
-
-def myconverter(o):
-    if isinstance(o, datetime.datetime):
-        return o.__str__()
-
+from SendMail import sendMailTo
+from static.DbConnection import *
 
 app = Flask(__name__)
 
-dbConnection = DbConnection('localhost', '1401', 'Inspection', 'SA', 'InspectionDoesntHaveAStrongRootPass9211@')
-connection = dbConnection.connect()
+# "Server};Server=localhost,1401;Database=Inspection;uid=SA;pwd=InspectionDoesntHaveAStrongRootPass9211@")
 
 counter = 0
 
 inspectionApis = InspectionAPIs()
 
 
+def getRandomPass():
+    s = "abcdefghijklmnopqrstuvwxyz01234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$%^*()?"
+    passlen = 8
+    p = "".join(random.sample(s, passlen))
+    return p
+
+
 def getRequestParam(req, param):
     return req.args.get(param)
 
 
-def queryDb(queryString):
-    global connection
-    global counter
-    if counter > 2:
-        counter = 0
-        return "[]"
-    try:
-        cursor = connection.cursor()
-        cursor.execute(queryString)
-        resultDict = []
-        columns = [column[0] for column in cursor.description]
-        lowerColumns = []
-        for column in columns:
-            lowerColumns.append(column.lower())
-        for row in cursor.fetchall():
-            resultDict.append(dict(zip(lowerColumns, row)))
-        cursor.close()
-        counter = 0
-        return dumps(resultDict, default=myconverter)
-    except Exception as e:
-        print("the error retrieved is:" + str(e))
-        if "Attempt to use a closed connection" not in str(e) and "Connection not open" not in str(
-                e) and "Communication link failure" not in str(e):
-            connection.close()
-        connection = dbConnection.connect()
-        counter += 1
-        queryDb(queryString)
-
-
-def queryCsiDB(queryString):
-    dbConnection2 = DbConnection('192.168.75.1', '1433', 'CSI', 'devsherif', 'Xirah4Lishe8ahFae9ze')
-    conn = dbConnection2.connect()
-    try:
-        cursor = conn.cursor()
-        cursor.execute(queryString)
-        resultDict = []
-        columns = [column[0] for column in cursor.description]
-        lowerColumns = []
-        for column in columns:
-            lowerColumns.append(column.lower())
-        for row in cursor.fetchall():
-            resultDict.append(dict(zip(lowerColumns, row)))
-        cursor.close()
-        counter = 0
-        return dumps(resultDict, default=myconverter)
-    except Exception as e:
-        print("the error retrieved is:" + str(e))
-        return str(e)
-        if "Attempt to use a closed connection" not in str(e) and "Connection not open" not in str(
-                e) and "Communication link failure" not in str(e):
-            conn.close()
-        connection = dbConnection.connect()
-        counter += 1
-        queryDb(queryString)
-
-
 @app.route('/getAllFacilities')
 def getAllFacilities():
-    return queryCsiDB(
+    return DbConnection.queryCsiDB(
         "select clubcode, facnum, facname from csi.dbo.AAAFacilities where acnm = 'aaaphone' and active = 1")
+
 
 @app.route('/getFacilityData')
 def getFacilityData():
@@ -94,10 +39,11 @@ def getFacilityData():
     return str(
         inspectionApis.getFacilityData(facnum, clubcode))
 
+
 @app.route('/getAllSpecialists')
 def getAllSpecialists():
     # return queryCsiDB("select id, AccSpecID, specialistName from csi.dbo.aaaspecialist where acnm = 'aaaphone'")
-    return queryCsiDB("exec csi.dbo.ACE_Specialists")
+    return DbConnection.queryCsiDB("exec csi.dbo.ACE_Specialists")
 
 
 @app.route('/getClubCodes')
@@ -107,13 +53,13 @@ def getClubCodes():
     if clubCodeQuery is not None:
         queryString += " and RIGHT('00'+ CONVERT(VARCHAR,clubcode),3) like '" + clubCodeQuery + "%'"
     queryString += " order by 1"
-    return queryCsiDB(queryString)
+    return DbConnection.queryCsiDB(queryString)
 
 
 @app.route('/getSpecialistNameFromEmail')
 def getSpecialistNameFromEmail():
     specialistEmail = request.args.get('specialistEmail')
-    return queryCsiDB(
+    return DbConnection.queryCsiDB(
         "select clubcode, specialistName from csi.dbo.aaaspecialist where acnm = 'aaaphone' and lower(specialistemail) = lower('" + specialistEmail + "')")
 
 
@@ -123,23 +69,24 @@ def getVisitationPlanningList():
     month = request.args.get('month')
     year = request.args.get('year')
     if facilityName is not None and len(facilityName) > 0:
-        return queryCsiDB(
+        return DbConnection.queryCsiDB(
             "select FacNum, facname, joindate from csi.dbo.aaafacilities where facname = '" + facilityName + "' and month(JoinDate) = " + month + " and year(JoinDate) < " + year)
     else:
-        return queryCsiDB(
+        return DbConnection.queryCsiDB(
             "select FacNum, facname, joindate from csi.dbo.aaafacilities where month(JoinDate) = " + month + " and year(JoinDate) < " + year)
 
 
 @app.route('/getFacilities')
 def getFacilities():
     facilityName = str(request.args.get('facilityName')).lower()
-    return queryDb("select * from tblFacilities$ where active = 1 and BusinessName like '" + facilityName + "%'")
+    return DbConnection.queryDb(
+        "select * from tblFacilities$ where active = 1 and BusinessName like '" + facilityName + "%'")
 
 
 @app.route('/getFacilityWithId')
 def getFacilityWithId():
     facilityId = request.args.get('facilityId')
-    return queryDb("select * from tblFacilities$ where active = 1 and facId = " + facilityId)
+    return DbConnection.queryDb("select * from tblFacilities$ where active = 1 and facId = " + facilityId)
 
 
 @app.route('/getFacilitiesWithFilters')
@@ -149,7 +96,7 @@ def getFacilitiesWithFilters():
     dba = request.args.get('dba')
     assignedSpecialist = request.args.get('assignedSpecialist')
     contractStatus = request.args.get('contractStatus')
-    queryString = "select RIGHT('00'+ CONVERT(VARCHAR,clubcode),3) as clubcode, facName, facNum from csi.dbo.aaafacilities where acnm = 'aaaphone' and RIGHT('00'+ CONVERT(VARCHAR,clubcode),3) like '%" + clubCode + "%' and facName like '%" + dba + "%'"
+    queryString = "select RIGHT('00'+ CONVERT(VARCHAR,clubcode),3) as clubcode, facName, active, facNum from csi.dbo.aaafacilities where acnm = 'aaaphone' and RIGHT('00'+ CONVERT(VARCHAR,clubcode),3) like '%" + clubCode + "%' and facName like '%" + dba + "%'"
 
     if len(contractStatus) > 0:
         queryString += str(" and active = " + contractStatus)
@@ -158,19 +105,19 @@ def getFacilitiesWithFilters():
     if len(assignedSpecialist) > 0:
         queryString += str(
             " and specialistid = (select id from csi.dbo.aaaspecialist where accspecid = '" + assignedSpecialist + "')")
-    return queryCsiDB(queryString)
+    return DbConnection.queryCsiDB(queryString)
 
 
 @app.route('/getFacilityHours')
 def getFacilityHours():
     facilityId = str(request.args.get('facilityId'))
-    return queryDb("select * from tblHours$ where facid = " + facilityId)
+    return DbConnection.queryDb("select * from tblHours$ where facid = " + facilityId)
 
 
 @app.route('/getPersonnelTypes')
 def getPersonnelTeypes():
     facilityId = str(request.args.get('facilityId'))
-    return queryDb(
+    return DbConnection.queryDb(
         "select distinct(personnelTypeName), a.PersonnelTypeID  from tblPersonnelType$ a, tblPersonnel$ b where a.PersonnelTypeID = b.PersonnelTypeID and FacID = " + facilityId)
 
 
@@ -178,64 +125,64 @@ def getPersonnelTeypes():
 def getPersonnelDetails():
     facilityId = str(request.args.get('facilityId'))
     personnelTypeId = str(request.args.get('personnelTypeId'))
-    return queryDb(
+    return DbConnection.queryDb(
         "select a.FacID, a.PersonnelID,a.PersonnelTypeID,a.FirstName,a.LastName,a.SeniorityDate,a.CertificationNum,a.startDate,a.endDate,a.ContractSigner,a.PrimaryMailRecipient,a.RSP_UserName,a.RSP_Email,a.RSP_Phone,b.Addr1,b.Addr2,b.CITY, case when (b.ST is not null) then (select LongDesc from tblStateMapping where ShortDesc=b.st) else null end as State ,b.ZIP,b.ZIP4,b.Phone,b.email,b.ContractStartDate,b.ContractEndDate from tblPersonnel$ a LEFT OUTER JOIN tblPersonnelSigner$ b on a.PersonnelID=b.PersonnelID where facid = " + facilityId + " and personnelTypeId = " + personnelTypeId)
 
 
 @app.route('/getAllPersonnelsDetails')
 def getAllPersonnelDetails():
-    return queryDb(
+    return DbConnection.queryDb(
         "select a.FacID, a.PersonnelID,a.PersonnelTypeID,a.FirstName,a.LastName,a.SeniorityDate,a.CertificationNum,a.startDate,a.endDate,a.ContractSigner,a.PrimaryMailRecipient,a.RSP_UserName,a.RSP_Email,a.RSP_Phone,b.Addr1,b.Addr2,b.CITY, case when (b.ST is not null) then (select LongDesc from tblStateMapping where ShortDesc=b.st) else null end as State ,b.ZIP,b.ZIP4,b.Phone,b.email,b.ContractStartDate,b.ContractEndDate from tblPersonnel$ a LEFT OUTER JOIN tblPersonnelSigner$ b on a.PersonnelID=b.PersonnelID")
 
 
 @app.route('/getPersonnelDetailsWithId')
 def getPersonnelDetailsWithId():
     personneId = str(request.args.get('personnelId'))
-    return queryDb(
+    return DbConnection.queryDb(
         "select a.FacID, a.PersonnelID,a.PersonnelTypeID,a.FirstName,a.LastName,a.SeniorityDate,a.CertificationNum,a.startDate,a.endDate,a.ContractSigner,a.PrimaryMailRecipient,a.RSP_UserName,a.RSP_Email,a.RSP_Phone,b.Addr1,b.Addr2,b.CITY, case when (b.ST is not null) then (select LongDesc from tblStateMapping where ShortDesc=b.st) else null end as State ,b.ZIP,b.ZIP4,b.Phone,b.email,b.ContractStartDate,b.ContractEndDate from tblPersonnel$ a LEFT OUTER JOIN tblPersonnelSigner$ b on a.PersonnelID=b.PersonnelID where a.personnelId = " + personneId)
 
 
 @app.route('/getScopeOfServicDetails')
 def getScopeOfService():
     facilityId = str(request.args.get('facilityId'))
-    return queryDb("select * from tblScopeofService$ where FACID = " + facilityId)
+    return DbConnection.queryDb("select * from tblScopeofService$ where FACID = " + facilityId)
 
 
 @app.route('/getVehicleServicesForFacility')
 def getVehicleServicesForFaacility():
     facilityId = str(request.args.get('facilityId'))
-    return queryDb(
+    return DbConnection.queryDb(
         "select * from tblScopeofServiceType$ a, tblVehicleServices$ b where a.ScopeServiceID = b.ScopeServiceID and a.active = 1 and FACID = " + facilityId)
 
 
 @app.route('/getPaymentMethods')
 def getPaymentMethods():
-    return queryDb("select * from tblPaymentMethodsType$ where active = 1")
+    return DbConnection.queryDb("select * from tblPaymentMethodsType$ where active = 1")
 
 
 @app.route('/getFacilityAddresses')
 def getFacilityAddresses():
     facilityId = str(request.args.get('facilityId'))
-    return queryDb(
+    return DbConnection.queryDb(
         "select a.*, b.LocTypeName from tblAddress$ a, tblLocationType$ b where a.LocationTypeID = b.LocTypeID and facid = " + facilityId + " and a.active = 1 and b.active = 1")
 
 
 @app.route('/getProgramTypes')
 def getProgramTypes():
-    return queryDb("SELECT programtypeid,programtypename from tblProgramsType$ where active=1")
+    return DbConnection.queryDb("SELECT programtypeid,programtypename from tblProgramsType$ where active=1")
 
 
 # @app.route('/getFacilityComplaints')
 # def getFacilityComplaints():
 #     facilityId = str(request.args.get('facilityId'))
-#     return queryDb(
+#     return DbConnection.queryDb(
 #         "select a.RecordID,a.ComplaintID,a.FirstName,a.LastName,a.ReceivedDate,c.ComplaintReasonName,(select count(1) from tblComplaintFiles$ cf where a.FACID=cf.FACID and cf.ReceivedDate>=current_timestamp-365) as NoOfComplaintsLastYear from tblComplaintFiles$ a,tblComplaintFilesReason$ b, tblComplaintFilesReasonType$ c where a.RecordID=b.ComplaintRecordID and b.ComplaintReasonID=c.ComplaintReasonID and ComplaintNotCounted=0 and FACID = " + facilityId)
 
 
 @app.route('/getFacilityEmailAndPhone')
 def getFacilityEmailaAndPhone():
     facilityId = str(request.args.get('facilityId'))
-    return queryDb(
+    return DbConnection.queryDb(
         "select FacID,'EMAIL' as ContactType,emailTypeId as 'TYPE',case (emailTypeId) when 0 then 'Business' else 'Personal' END as 'TypeName',email as 'ContactDetail' from tblFacilityEmail$ a where FacID=" + facilityId + " union All select FacID,'PHONE',PhoneTypeID,case (PhoneTypeID) when 0 then 'Business' when 1 then 'Cell' when 2 then 'Fax' else 'Home' END ,LTRIM(str(PhoneNumber,20)) from tblPhone$ where FacID=" + facilityId)
 
 
@@ -244,17 +191,17 @@ def getVisitationRecords():
     facilityName = str(request.args.get('facilityName'))
     inspectionType = str(request.args.get('inspectionType'))
     if inspectionType == '0':
-        return queryDb(
+        return DbConnection.queryDb(
             "select a.facID, a.visitationID, a.performedBy, a.DatePerformed, a.DatePlanned, c.businessName as name, case when(DatePlanned is not null) then 'Planned Visitation' else 'New Visitation' end as InspectionStatus from tblVisitationRecords a, tblInspectiontypes b, tblFacilities$ c where a.facID = c.FacID and  a.InspectionType = b.id and (BusinessName like '%" + facilityName + "%' or EntityName like '%" + facilityName + "%')")
     else:
-        return queryDb(
+        return DbConnection.queryDb(
             "select a.facID, a.visitationID, a.performedBy, a.DatePerformed, a.DatePlanned, c.businessName as name, case when(DatePlanned is not null) then 'Planned Visitation' else 'New Visitation' end as InspectionStatus from tblVisitationRecords a, tblInspectiontypes b, tblFacilities$ c where a.facID = c.FacID and  a.InspectionType = b.id and (BusinessName like '%" + facilityName + "%' or EntityName like '%" + facilityName + "%') and a.InspectionType = " + inspectionType)
 
 
 @app.route('/getContractSignerDetails')
 def getContractSignerDetails():
     personnelId = str(request.args.get('personnelId'))
-    return queryDb(
+    return DbConnection.queryDb(
         "select PersonnelID,Addr1,Addr2,CITY,ST,ZIP,ZIP4,Phone,email,ContractStartDate,ContractEndDate from tblPersonnelSigner$ where PersonnelID=" + personnelId)
 
 
@@ -316,13 +263,13 @@ def getAnnualVisitations():
 
     print(queryString)
 
-    return queryDb(queryString)
+    return DbConnection.queryDb(queryString)
 
 
 @app.route('/getLastAnnualVisitationInspectionForFacility')
 def getLastAnnualVisitationInspectionForFacility():
     facilityId = str(request.args.get('facilityId'))
-    return queryDb(
+    return DbConnection.queryDb(
         "select * from tblAnnualVisitationInspectionFormData where facilityId=" + facilityId)
 
 
@@ -330,7 +277,7 @@ def getLastAnnualVisitationInspectionForFacility():
 def getPhoneNumberWithFacilityAndId():
     facilityId = str(request.args.get('facilityId'))
     phoneId = str(request.args.get('phoneId'))
-    return queryDb(
+    return DbConnection.queryDb(
         "select * from tblPhone$ a where FacID = " + facilityId + " and phoneId = " + phoneId + " and active = 1")
 
 
@@ -338,39 +285,39 @@ def getPhoneNumberWithFacilityAndId():
 def getEmailFromFacilityAndId():
     facilityId = str(request.args.get('facilityId'))
     emailId = str(request.args.get('emailId'))
-    return queryDb(
+    return DbConnection.queryDb(
         "select * from tblFacilityEmail$ where facId = " + facilityId + " and emailId = " + emailId + "")
 
 
 @app.route('/getVehicleServices')
 def getVehicleServices():
-    return queryDb(
+    return DbConnection.queryDb(
         "select * from tblScopeofServiceType$ where active = 1 order by scopeservicename")
 
 
 @app.route('/getFacilityPrograms')
 def getFacilityPrograms():
     facilityId = str(request.args.get('facilityId'))
-    return queryDb(
+    return DbConnection.queryDb(
         "select ProgramID,ProgramTypeName,effDate,expDate,Comments from tblPrograms$ a, tblProgramsType$ b where a.ProgramTypeID=b.ProgramTypeID and a.active=1 and FACID=" + facilityId)
 
 
 @app.route('/getVehicles')
 def getVehicles():
-    return queryDb(
+    return DbConnection.queryDb(
         "select * from tblVehicleMakesType$ where active = 1 order by 2")
 
 
 @app.route('/getAffiliationTypes')
 def getAffiliationTypes():
-    return queryDb(
+    return DbConnection.queryDb(
         "select a.typeID,typeName,typeDetailID,typeDetailName from tblAffiliationType a left OUTER JOIN tblAffiliationTypeDetail b on a.typeID=b.typeID")
 
 
 @app.route('/getFacilityAffiliations')
 def getFacilityAffiliations():
     facilityId = str(request.args.get('facilityId'))
-    return queryDb(
+    return DbConnection.queryDb(
         "select a.AffiliationID,b.typeName,(select typeDetailName from tblAffiliationTypeDetail where typeDetailID=AffiliationTypeDetailID) as typeDetailName ,effDate,expDate,comment from tblAffiliations$ a, tblAffiliationType b where a.AffiliationTypeID=b.typeID and a.active=1 and FACID=" + facilityId)
 
 
@@ -379,10 +326,10 @@ def getFacilityComplaints():
     facilityId = str(request.args.get('facilityId'))
     all = str(request.args.get('all'))
     if all == 'true':
-        return queryDb(
+        return DbConnection.queryDb(
             "select a.RecordID,a.ComplaintID,a.FirstName,a.LastName,a.ReceivedDate,c.ComplaintReasonName,f.ComplaintResolutionName,(select count(1) from tblComplaintFiles$ cf where a.FACID=cf.FACID and cf.ReceivedDate<=current_timestamp) as NoOfComplaintsLastYear, (select count(1) from tblComplaintFiles$ cf,tblComplaintFilesResolution$ cfr, tblComplaintFilesResolutionType$ cfrt where a.FACID=cf.FACID and cfr.ComplaintRecordID=cf.RecordID and cfr.ComplaintResolutionID=cfrt.ComplaintResolutionID and cf.ReceivedDate<=current_timestamp and lower(ComplaintResolutionName) ='justified') as NoOfJustifiedLastYear, (FacilityRepairOrderCount*12) as TotalOrders, '' as comments from tblComplaintFiles$ a,tblComplaintFilesReason$ b, tblComplaintFilesReasonType$ c,tblFacilities$ d, tblComplaintFilesResolution$ e, tblComplaintFilesResolutionType$ f where a.RecordID=b.ComplaintRecordID and b.ComplaintReasonID=c.ComplaintReasonID and a.RecordID=e.ComplaintRecordID and e.ComplaintResolutionID=f.ComplaintResolutionID and ComplaintNotCounted=0 and a.FACID=d.FacID and ReceivedDate<=current_timestamp and a.FACID=" + facilityId)
     else:
-        return queryDb(
+        return DbConnection.queryDb(
             "select a.RecordID,a.ComplaintID,a.FirstName,a.LastName,a.ReceivedDate,c.ComplaintReasonName,f.ComplaintResolutionName,(select count(1) from tblComplaintFiles$ cf where a.FACID=cf.FACID and cf.ReceivedDate>=current_timestamp-365) as NoOfComplaintsLastYear, (select count(1) from tblComplaintFiles$ cf,tblComplaintFilesResolution$ cfr, tblComplaintFilesResolutionType$ cfrt where a.FACID=cf.FACID and cfr.ComplaintRecordID=cf.RecordID and cfr.ComplaintResolutionID=cfrt.ComplaintResolutionID and cf.ReceivedDate>=current_timestamp-365 and lower(ComplaintResolutionName) ='justified') as NoOfJustifiedLastYear, (FacilityRepairOrderCount*12) as TotalOrders, '' as comments from tblComplaintFiles$ a,tblComplaintFilesReason$ b, tblComplaintFilesReasonType$ c,tblFacilities$ d, tblComplaintFilesResolution$ e, tblComplaintFilesResolutionType$ f where a.RecordID=b.ComplaintRecordID and b.ComplaintReasonID=c.ComplaintReasonID and a.RecordID=e.ComplaintRecordID and e.ComplaintResolutionID=f.ComplaintResolutionID and ComplaintNotCounted=0 and a.FACID=d.FacID and ReceivedDate>=current_timestamp-365 and a.FACID=" + facilityId)
 
 
@@ -497,8 +444,8 @@ def updateFacilityAddressData():
 
 @app.route('/updateFacilityEmailData')
 def updateFacilityEmailData():
-    facNum = str(request.args.get('facNum'))
-    clubCode = str(request.args.get('clubCode'))
+    facNum = str(request.args.get('facnum'))
+    clubCode = str(request.args.get('clubcode'))
     emailId = str(request.args.get('emailId'))
     emailTypeId = str(request.args.get('emailTypeId'))
     email = str(request.args.get('email'))
@@ -531,10 +478,7 @@ def updateFacilityPhoneData():
 
 
 @app.route('/updateFacilityPersonnelData')
-def updateFacilityPersonnelData(facNum, clubCode, personnelId, personnelTypeId, firstName, lastName,
-                                seniorityDate, certificationNum, startDate, contractSigner
-                                , insertBy, insertDate, updateBy, updateDate, active, primaryMailRecipient,
-                                rsp_userName, rsp_email, rsp_phone):
+def updateFacilityPersonnelData():
     facNum = str(request.args.get('facNum'))
     clubCode = str(request.args.get('clubCode'))
     personnelId = str(request.args.get('personnelId'))
@@ -607,7 +551,7 @@ def updateAARPortalAdminData():
     facId = str(request.args.get('facId'))
     startDate = str(request.args.get('startDate'))
     endDate = str(request.args.get('endDate'))
-    addendumSigned = str(request.args.get('addendumSigned'))
+    addendumSigned = str(request.args.get('AddendumSigned'))
     cardReaders = str(request.args.get('cardReaders'))
     insertBy = str(request.args.get('insertBy'))
     insertDate = str(request.args.get('insertDate'))
@@ -615,7 +559,8 @@ def updateAARPortalAdminData():
     updateDate = str(request.args.get('updateDate'))
     active = str(request.args.get('active'))
     return str(
-        inspectionApis.updateAARPortalAdminData(facNum, clubCode, facId, startDate, endDate, addendumSigned, cardReaders,
+        inspectionApis.updateAARPortalAdminData(facNum, clubCode, facId, startDate, endDate, addendumSigned,
+                                                cardReaders,
                                                 insertBy, insertDate, updateBy, updateDate, active))
 
 
@@ -742,7 +687,7 @@ def updateFacilityHoursData():
     tueOpen = str(request.args.get('tueOpen'))
     tueClose = str(request.args.get('tueClose'))
     wedOpen = str(request.args.get('wedOpen'))
-    wedClose, = str(request.args.get('wedClose,'))
+    wedClose = str(request.args.get('wedClose'))
     thuOpen = str(request.args.get('thuOpen'))
     thuClose = str(request.args.get('thuClose'))
     friOpen = str(request.args.get('friOpen'))
@@ -750,13 +695,13 @@ def updateFacilityHoursData():
     satOpen = str(request.args.get('satOpen'))
     satClose = str(request.args.get('satClose'))
     sunOpen = str(request.args.get('sunOpen'))
-    sunClose, = str(request.args.get('sunClose,'))
+    sunClose = str(request.args.get('sunClose'))
     nightDrop = str(request.args.get('nightDrop'))
     nightDropInstr = str(request.args.get('nightDropInstr'))
     insertBy = str(request.args.get('insertBy'))
     insertDate = str(request.args.get('insertDate'))
     updateBy = str(request.args.get('updateBy'))
-    updateDate, = str(request.args.get('updateDate,'))
+    updateDate = str(request.args.get('updateDate'))
     facAvailability = str(request.args.get('facAvailability'))
     availEffDate = str(request.args.get('availEffDate'))
     availExpDate = str(request.args.get('availExpDate'))
@@ -827,15 +772,14 @@ def updateFacilityServiceProviderData():
 
 
 @app.route('/updateFacilityServicesData')
-def updateFacilityServicesData(facNum, clubCode, facilityServicesId, serviceId, effDate, expDate, comments,
-                               active, insertBy, insertDate, updateBy, updateDate):
+def updateFacilityServicesData():
     facNum = str(request.args.get('facNum'))
     clubCode = str(request.args.get('clubCode'))
     facilityServicesId = str(request.args.get('facilityServicesId'))
     serviceId = str(request.args.get('serviceId'))
     effDate = str(request.args.get('effDate'))
     expDate = str(request.args.get('expDate'))
-    comments, = str(request.args.get('comments,'))
+    comments = str(request.args.get('comments'))
     active = str(request.args.get('active'))
     insertBy = str(request.args.get('insertBy'))
     insertDate = str(request.args.get('insertDate'))
@@ -847,8 +791,7 @@ def updateFacilityServicesData(facNum, clubCode, facilityServicesId, serviceId, 
 
 
 @app.route('/updateProgramsData')
-def updateProgramsData(facNum, clubCode, programId, programTypeId, effDate, expDate, comments, active,
-                       insertBy, insertDate, updateBy, updateDate):
+def updateProgramsData():
     facNum = str(request.args.get('facNum'))
     clubCode = str(request.args.get('clubCode'))
     programId = str(request.args.get('programId'))
@@ -856,7 +799,7 @@ def updateProgramsData(facNum, clubCode, programId, programTypeId, effDate, expD
     effDate = str(request.args.get('effDate'))
     expDate = str(request.args.get('expDate'))
     comments = str(request.args.get('comments'))
-    active, = str(request.args.get('active,'))
+    active, = str(request.args.get('active'))
     insertBy = str(request.args.get('insertBy'))
     insertDate = str(request.args.get('insertDate'))
     updateBy = str(request.args.get('updateBy'))
@@ -927,8 +870,8 @@ def updateFacilityVehicles():
 
 @app.route('/updatePersonnelCertification')
 def updatePersonnelCertification():
-    facnum = str(request.args.get('facnum'))
-    clubcode = str(request.args.get('clubcode'))
+    facnum = str(request.args.get('facNum'))
+    clubcode = str(request.args.get('clubCode'))
     personnelId = str(request.args.get('personnelId'))
     certId = str(request.args.get('certId'))
     certificationTypeId, = str(request.args.get('certificationTypeId,'))
@@ -983,8 +926,8 @@ def updateVehicleServices():
 
 @app.route('/updateAARPortalTracking')
 def updateAARPortalTracking():
-    facnum = str(request.args.get('facnum'))
-    clubcode = str(request.args.get('clubcode'))
+    facnum = str(request.args.get('facNum'))
+    clubcode = str(request.args.get('clubCode'))
     facId = str(request.args.get('facId'))
     trackingId = str(request.args.get('trackingId'))
     portalInspectionDate = str(request.args.get('portalInspectionDate'))
@@ -998,7 +941,8 @@ def updateAARPortalTracking():
     updateDate = str(request.args.get('updateDate'))
     active = str(request.args.get('active'))
     return str(
-        inspectionApis.updateAARPortalTracking(facnum, clubcode, facId, trackingId, portalInspectionDate, loggedIntoPortal,
+        inspectionApis.updateAARPortalTracking(facnum, clubcode, facId, trackingId, portalInspectionDate,
+                                               loggedIntoPortal,
                                                numberUnacknowledgedTows, inProgressTows, inProgressWalkIns, insertBy,
                                                insertDate, updateBy, updateDate, active))
 
@@ -1007,10 +951,43 @@ def updateAARPortalTracking():
 def updateVehicles():
     facnum = str(request.args.get('facnum'))
     clubcode = str(request.args.get('clubcode'))
-    vehicleid = str(request.args.get('vehicleid'))
+    vehicleid = str(request.args.get('VehicleID'))
     insertDate = str(request.args.get('insertDate'))
     insertBy = str(request.args.get('insertBy'))
     return str(inspectionApis.updateVehicles(facnum, clubcode, vehicleid, insertDate, insertBy))
+
+
+@app.route('/authenticate')
+def authenticate():
+    email = str(request.args.get('email'))
+    password = str(request.args.get('password'))
+    return DbConnection.queryCsiDB(
+        "exec v2reports.dbo.InspectionLogin @email='" + email + "', @password = '" + password + "';")
+
+
+@app.route('/resetPassword')
+def resetPassword():
+    email = str(request.args.get('email'))
+    result = DbConnection.getCountFromCsiDB(
+        "select count(*) from v2reports.dbo.V2Login where lower(email) = '" + email + "'")
+    if result > 0:
+        randomPassword = getRandomPass()
+        sendMailTo(email, randomPassword)
+        updateStatement = "update v2reports.dbo.v2login set temppassword = '" + randomPassword + "' where Email = '" + email + "'"
+        DbConnection.updateCsiDB(updateStatement)
+        return "Success"
+    else:
+        return "invalid email/username"
+
+
+@app.route('/changePassword')
+def changePassword():
+    email = str(request.args.get('email'))
+    password = str(request.args.get('password'))
+    updateStatement = "update v2reports.dbo.v2login set temppassword = '', password = '" + password + "' where lower(Email) = loweR('" + email + "')"
+    DbConnection.updateCsiDB(updateStatement)
+    return "Success"
+
 
 @app.route('/<path:path>')
 def catch_all(path):

@@ -58,6 +58,15 @@ class InspectionAPIs:
 
         return self.sendRequest(body)
 
+    def updateFacilityVehicles(self, facnum, clubcode, vehicleId, insertBy, insertDate):
+        body = "<?xml version=\"1.0\" encoding=\"utf-8\"?><soapenv:Envelope " \
+               "xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\"><soapenv:Header " \
+               "/><soapenv:Body><request><requestName>UpdateFacVehicles</requestName><requestXml><facnum>" + facnum + \
+               "</facnum><clubcode>" + clubcode + "</clubcode><VehicleID>" + vehicleId + "</VehicleID><insertBy>" + \
+               insertBy + "</insertBy><insertDate>" + insertDate + \
+               "</insertDate></requestXml></request></soapenv:Body></soapenv:Envelope>"
+        return self.sendRequest(body)
+
     def updateFacilityData(self, facNum, clubCode, businessName, busTypeId, entityName, assignToId, officeId
                            , taxIdNumber, facilityRepairOrderCount, facilityAnnualInspectionMonth, inspectionCycle,
                            timeZoneId, svcAvailability
@@ -92,8 +101,8 @@ class InspectionAPIs:
         return self.sendRequest(body)
 
     def updateFacilityAddressData(self, facnum, clubcode, locationTypeID, FAC_Addr1, FAC_Addr2, CITY, ST, ZIP,
-                                  Country, BranchName, BranchNumber, LATITUDE, LONGITUDE, insertBy, insertDate,
-                                  updateBy, updateDate, active):
+                                        Country, BranchName, BranchNumber, LATITUDE, LONGITUDE, insertBy, insertDate,
+                                        updateBy, updateDate, active):
         body = "<?xml version=\"1.0\" encoding=\"utf-8\"?><soapenv:Envelope " \
                "xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\"><soapenv:Header/><soapenv:Body><request" \
                "><requestName>UpdateFacilityAddressData</requestName><requestXml><facnum>" + facnum + \
@@ -108,7 +117,7 @@ class InspectionAPIs:
         return self.sendRequest(body)
 
     def updateFacilityEmailData(self, facNum, clubCode, emailId, emailTypeId, email, insertBy, insertDate,
-                                updateBy, updateDate):
+                                updateBy, updateDate, active):
         body = "<?xml version=\"1.0\" encoding=\"utf-8\"?><soapenv:Envelope " \
                "xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\"><soapenv:Header/><soapenv:Body><request" \
                "><requestName>UpdateFacilityEmailData</requestName><requestXml><facnum>" + facNum + \
@@ -486,13 +495,3 @@ class InspectionAPIs:
                "/><soapenv:Body><request><requestName>GetFacilityData</requestName><requestXml><facnum>"+facnum+"</facnum" \
                "><clubcode>"+clubcode+"</clubcode></requestXml></request></soapenv:Body></soapenv:Envelope> "
         return self.sendRequest(body)
-
-    def updateFacilityInfo(self, facNum, clubCode, businessName, busTypeId, entityName, assignToId, officeId,
-                                          taxIdNumber, facilityRepairOrderCount, facilityAnnualInspectionMonth,
-                                          inspectionCycle, timeZoneId, svcAvailability, facilityTypeId,
-                                          automotiveRepairNumber, automotiveRepairExpDate, contractCurrentDate,
-                                          contractInitialDate, billingMonth, billingAmount, internetAccess, webSite,
-                                          terminationDate, terminationId, terminationComments, insertBy, insertDate,
-                                          updateBy, updateDate, active, achParticipant, insuranceExpDate,
-                                          contractTypeId):
-        body = ""

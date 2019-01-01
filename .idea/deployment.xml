@@ -7,6 +7,9 @@
           <mappings>
             <mapping deploy="/var/www/Inspection/WebServices" local="$PROJECT_DIR$" web="/" />
           </mappings>
+          <excludedPaths>
+            <excludedPath path="/var/www/Inspection/WebServices/python3Env" />
+          </excludedPaths>
         </serverdata>
       </paths>
     </serverData>
