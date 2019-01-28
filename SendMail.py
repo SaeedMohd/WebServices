@@ -6,13 +6,13 @@ from email.mime.text import MIMEText
 
 def sendMailTo(userMail, tempPass):
     sender_email = "sherif@pacificresearchgroup.com"
-    receiver_email = ['sherif@pacificresearchgroup.com', 'saeed@pacificresearchgroup.com'] #userMail
+    receiver_email = userMail
     password = "smmmo1985"
 
     message = MIMEMultipart("alternative")
     message["Subject"] = "ACE AAR Inspection: Reset Password"
     message["From"] = sender_email
-    message["To"] = ", ".join(receiver_email)
+    message["To"] = receiver_email
 
     # Create the plain-text and HTML version of your message
     text = ""
