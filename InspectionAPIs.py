@@ -78,8 +78,8 @@ class InspectionAPIs:
         body = "<?xml version=\"1.0\" encoding=\"utf-8\"?><soapenv:Envelope " \
                "xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\"><soapenv:Header/><soapenv:Body><request" \
                "><requestName>UpdateFacilityData</requestName><requestXml><facnum>" + facNum + "</facnum><clubcode>" \
-               + clubCode + "</clubcode><BusinessName>" + businessName + "</BusinessName><BusTypeID>" + busTypeId + \
-               "</BusTypeID><EntityName>" + entityName + "</EntityName><assignedToID>" + assignToId + \
+               + clubCode + "</clubcode><BusinessName><![CDATA[" + businessName + "]]></BusinessName><BusTypeID>" + busTypeId + \
+               "</BusTypeID><EntityName><![CDATA[" + entityName + "]]></EntityName><assignedToID>" + assignToId + \
                "</assignedToID><officeID>" + officeId + "</officeID><TaxIDNumber>" + taxIdNumber + \
                "</TaxIDNumber><FacilityRepairOrderCount>" + facilityRepairOrderCount + \
                "</FacilityRepairOrderCount><FacilityAnnualInspectionMonth>" + facilityAnnualInspectionMonth + \
@@ -109,7 +109,7 @@ class InspectionAPIs:
                "</facnum><clubcode>" + clubcode + "</clubcode><LocationTypeID>" + locationTypeID + \
                "</LocationTypeID><FAC_Addr1>" + FAC_Addr1 + "</FAC_Addr1><FAC_Addr2>" + FAC_Addr2 + \
                "</FAC_Addr2><CITY>" + CITY + "</CITY><ST>" + ST + "</ST><ZIP>" + ZIP + "</ZIP><ZIP4/><County>" + \
-               Country + "</County><BranchName>" + BranchName + "</BranchName><BranchNumber>" + BranchNumber + \
+               Country + "</County><BranchName><![CDATA[" + BranchName + "]]></BranchName><BranchNumber>" + BranchNumber + \
                "</BranchNumber><LATITUDE>" + LATITUDE + "</LATITUDE><LONGITUDE>" + LONGITUDE + \
                "</LONGITUDE><insertBy>" + insertBy + "</insertBy><insertDate>" + insertDate + \
                "</insertDate><updateBy>" + updateBy + "</updateBy><updateDate>" + updateDate + \
@@ -142,7 +142,7 @@ class InspectionAPIs:
         return self.sendRequest(body)
 
     def updateFacilityPersonnelData(self, facNum, clubCode, personnelId, personnelTypeId, firstName, lastName,
-                                    seniorityDate, certificationNum, startDate, contractSigner
+                                    seniorityDate, certificationNum, startDate, endDate,contractSigner
                                     , insertBy, insertDate, updateBy, updateDate, active, primaryMailRecipient,
                                     rsp_userName, rsp_email, rsp_phone):
         body = "<?xml version=\"1.0\" encoding=\"utf-8\"?><soapenv:Envelope " \
@@ -152,7 +152,8 @@ class InspectionAPIs:
                "</PersonnelID><PersonnelTypeID>" + personnelTypeId + "</PersonnelTypeID><FirstName>" + firstName + \
                "</FirstName><LastName>" + lastName + "</LastName><SeniorityDate>" + seniorityDate + \
                "</SeniorityDate><CertificationNum>" + certificationNum + "</CertificationNum><startDate>" + startDate \
-               + "</startDate><ContractSigner>" + contractSigner + "</ContractSigner><insertBy>" + insertBy + \
+               + "</startDate><endDate>" + endDate + "</endDate><ContractSigner>"+contractSigner+"</ContractSigner>" \
+               "<insertBy>" + insertBy + \
                "</insertBy><insertDate>" + insertDate + "</insertDate><updateBy>" + updateBy + \
                "</updateBy><updateDate>" + updateDate + "</updateDate><active>" + active + \
                "</active><PrimaryMailRecipient>" + primaryMailRecipient + "</PrimaryMailRecipient><RSP_UserName>" + \

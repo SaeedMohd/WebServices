@@ -53,6 +53,27 @@ class DbConnection:
             DbConnection.queryDb(queryString)
 
     @staticmethod
+    def updateDB(updateStatement):
+        dbConnection = DbConnection('localhost', '1401', 'Inspection', 'SA', 'InspectionDoesntHaveAStrongRootPass9211@')
+        conn = dbConnection.connect()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(updateStatement)
+            cursor.close()
+            conn.commit()
+            return 'Success'
+        except Exception as e:
+            print("the error retrieved is:" + str(e))
+            return str(e)
+            if "Attempt to use a closed connection" not in str(e) and "Connection not open" not in str(
+                    e) and "Communication link failure" not in str(e):
+                conn.close()
+            connection = dbConnection.connect()
+            counter += 1
+            updateDB(updateStatement)
+
+
+    @staticmethod
     def queryCsiDB(queryString):
         dbConnection2 = DbConnection('192.168.75.1', '1433', 'CSI', 'devsherif', 'Xirah4Lishe8ahFae9ze')
         conn = dbConnection2.connect()
@@ -100,6 +121,15 @@ class DbConnection:
             updateCsiDB(updateStatement)
 
     @staticmethod
+    def sendPassResetMail(receipient,password):
+        dbConnection2 = DbConnection('192.168.75.1', '1433', 'CSI', 'devsherif', 'Xirah4Lishe8ahFae9ze')
+        conn = dbConnection2.connect()
+        body = '<p>Hi,<br> It was requested to reset your password for ACE AAR Inspection App Account.<br>This is you Temp Password: <b>'+password+'</b><br><br>If you didn''t ask to reset your password, you can ignore this email.<br><br>Thanks,<br>ACE AAR Inspection Team</p>'
+        conn.execute("exec dbo.sp_SMTPMail_HTML_TXT @SenderAddress = 'NoReply@PacificResearchGroup.com',@RecipientAddress = '"+receipient+"',@Subject1 = 'ACE AAR Inspection: Reset Password',@Body1 = '"+body+"'")
+        conn.commit()
+
+
+    @staticmethod
     def getCountFromCsiDB(queryString):
         dbConnection2 = DbConnection('192.168.75.1', '1433', 'CSI', 'devsherif', 'Xirah4Lishe8ahFae9ze')
         conn = dbConnection2.connect()
@@ -138,3 +168,4 @@ class DbConnection:
             connection = dbConnection.connect()
             counter += 1
             queryDb(queryString)
+

@@ -1,14 +1,91 @@
-from flask import Flask
-from flask import request
 import random
+import os
+from datetime import datetime
+from flask import Flask, request, redirect, url_for
+from flask import send_file
+from werkzeug.utils import secure_filename
 from InspectionAPIs import InspectionAPIs
-import datetime
 from SendMail import sendMailTo
+from SendMail import sendPDFTo
 from static.DbConnection import *
+import requests
 
+class Group():
+    Visitation = "Visitation"
+    Facility = "Facility"
+    SoS = "Scope Of Services"
+    Deficiency = "Deficiency"
+    Complaints = "Complaints"
+    Billing = "Billing"
+    Surveys = "Surveys"
+    Photos = "Photos"
+
+
+class Screens():
+    Visitation = "Visitation"
+    General = "General Information"
+    RSP = "RSP Tracking"
+    Location = "Location & Contact Info"
+    Personnel = "Personnel"
+    VehicleServices = "Vehicle Services"
+    FacilityServices = "Facility Services"
+    Vehicles = "Vehicles"
+    Programs = "Programs"
+    Affiliations = "Affiliations"
+    Deficiency = "Deficiency"
+    Complaints = "Complaints"
+    Photos = "Photos"
+
+
+class Sections():
+    Main = "Main"
+    Admin = "Admin"
+    Tracking = "Tracking"
+    Address = "Address"
+    Phone = "Phone"
+    Email = "Email"
+    Hours = "Hours"
+    Night = "Night Drop"
+    Languages = "Languages"
+    Certifications = "Certifications"
+    Detail = "Details"
+    Signer = "Contract Signer"
+
+
+
+UPLOAD_FOLDER = '/var/www/Inspection/WebServices/PRG/uploads'
+ALLOWED_EXTENSIONS = set(['pdf', 'png', 'jpg', 'jpeg'])
 app = Flask(__name__)
-
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 # "Server};Server=localhost,1401;Database=Inspection;uid=SA;pwd=InspectionDoesntHaveAStrongRootPass9211@")
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+@app.route('/uploadFile', methods=['POST'])
+def uploadFile():
+    email = request.args.get('email')
+    type = request.args.get('type')
+    specialistEmail = request.args.get('specialistEmail')
+    if request.method == 'POST':
+        file = request.files['file']
+        filename = secure_filename(file.filename)
+        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        sendPDFTo(specialistEmail,filename, type)
+        return 'File uploded succesfully'
+
+
+@app.route('/uploadPhoto', methods=['POST'])
+def uploadPhoto():
+    # facId = str(request.args.get('facId'))
+    fileNameToSave = str(request.args.get('fileNameToSave'))
+    if request.method == 'POST':
+        file = request.files['file']
+        # filename = secure_filename(facId+file.filename)
+        filename = secure_filename(fileNameToSave)
+        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        return 'File uploded succesfully'
 
 counter = 0
 
@@ -22,6 +99,16 @@ def getRandomPass():
     return p
 
 
+# @app.route('/logActiontoPRG')
+def logAction(sessionid,facid,clubcode,userid,groupname,screenname,sectionname,datachanged,action):
+    statement = "insert into tblPRGLogChanges values ('"+sessionid+"',"+facid+","+clubcode+",'"+userid+"','"+groupname+"','"+screenname+"','"+sectionname+"',"+action+",'"+datachanged+"',current_timestamp)"
+    return str(DbConnection.updateDB(statement))
+
+def logVisitationHeader(sessionid,facid,clubcode,userid,visitationType,visitationReason,emailPDF,emailTo,waiveVisitation,waiveComments,facilityRep):
+    statement = "insert into tblPRGVisitationHeader values ('" + sessionid + "'," + facid + "," + clubcode + ",'" + userid + "',current_timestamp,'" + visitationType + "','" + visitationReason + "'," + emailPDF + ",'" + emailTo + "'," + waiveVisitation + ",'" + waiveComments + "','" + facilityRep + "')"
+    return str(DbConnection.updateDB(statement))
+
+
 def getRequestParam(req, param):
     return req.args.get(param)
 
@@ -30,6 +117,50 @@ def getRequestParam(req, param):
 def getAllFacilities():
     return DbConnection.queryCsiDB(
         "select clubcode, facnum, facname from csi.dbo.AAAFacilities where acnm = 'aaaphone' and active = 1")
+
+
+# GET /api.asmx/SendTransactionalEmail?Username=string&Password=string&FromEmail=string&FromName=string&ToEmailAddress=string&Subject=string&MessagePlain=string&MessageHTML=string&Options=string HTTP/1.1
+
+@app.route('/testJangoMail')
+def testJangoMail():
+    try:
+        response = requests.post(
+        url="https://api.jangomail.com/api.asmx/SendTransactionalEmail",
+        headers={
+            "Content-Type": "application/x-www-form-urlencoded",
+        },
+            data={
+                "Username": "pa32rt300t",
+                "FromEmail": "NoReply@pacificresearchgroup.com",
+                "Password": "Miles78!",
+                "Subject": "TEST",
+                "ToEmailAddress": "saeed@pacificresearchgroup.com",
+                "FromName": "test",
+                "MessageHTML": "",
+                "MessagePlain": "YES PLAIN",
+                "Options": "",
+            },)
+        return response.content
+    except requests.exceptions.RequestException:
+        return 'Fail'
+
+
+@app.route('/getLoggedActions')
+def getLoggedActions():
+    facnum = request.args.get('facNum')
+    clubcode = request.args.get('clubCode')
+    userid = request.args.get('userId')
+    return DbConnection.queryDb(
+        "select * from tblPRGLogChanges where FacId="+facnum+" and ClubCode="+clubcode+" and userId='"+userid+"'")
+
+
+@app.route('/getVisitationHeader')
+def getVisitationHeader():
+    facnum = request.args.get('facNum')
+    clubcode = request.args.get('clubCode')
+    return DbConnection.queryDb(
+        "select top 1 * from tblPRGVisitationHeader where FacId="+facnum+" and ClubCode="+clubcode+" order by recordId desc")
+
 
 
 @app.route('/getFacilityData')
@@ -54,6 +185,48 @@ def getClubCodes():
         queryString += " and RIGHT('00'+ CONVERT(VARCHAR,clubcode),3) like '" + clubCodeQuery + "%'"
     queryString += " order by 1"
     return DbConnection.queryCsiDB(queryString)
+
+
+@app.route('/getFacilityPhotos')
+def getFacilityPhotos():
+    facId = request.args.get('facId')
+    clubCode = request.args.get('clubCode')
+    return DbConnection.queryDb("select * from tblFacilityPhotos where facid="+facId+" and clubCode="+clubCode)
+
+
+
+@app.route('/getImage')
+def get_image():
+    file = request.args.get('file')
+    filename = os.path.join(app.config['UPLOAD_FOLDER'], file)
+    if os.path.isfile(filename):
+        return send_file(filename)
+    return ''
+
+@app.route('/updateFacilityPhotos')
+def updateFacilityPhotos():
+    facId = request.args.get('facId')
+    clubCode = request.args.get('clubCode')
+    photoId = request.args.get('photoId')
+    downstreamApps = str(request.args.get('downstreamApps'))
+    fileDescription = str(request.args.get('fileDescription'))
+    fileName = str(request.args.get('fileName'))
+    lastUpdateBy = str(request.args.get('lastUpdateBy'))
+    approvalRequested = request.args.get('approvalRequested')
+    operation = str(request.args.get('operation'))
+    if operation == 'EDIT':
+        updateStatement = "update tblFacilityPhotos set clubCode="+clubCode+", downstreamapps='"+downstreamApps+"', filedescription='"+fileDescription+"' , lastUpdateBy='"+lastUpdateBy+"' , lastUpdateDate=current_timestamp , approvalrequested="+approvalRequested+" where facid=" + facId + "and photoid=" + photoId
+    else :
+        updateStatement = "insert into tblFacilityPhotos values ("+facId+",'"+fileName+"','"+fileDescription+"',"+approvalRequested+",0,'','','"+lastUpdateBy+"',current_timestamp,'"+downstreamApps+"',"+clubCode+")"
+    result = str(DbConnection.updateDB(updateStatement))
+    changeAction = str(request.args.get('changeAction'))
+    dataChanged = str(request.args.get('dataChanged'))
+    sessionId = str(request.args.get('sessionId'))
+    userId = str(request.args.get('userId'))
+    if 'Success' in result:
+        logAction(sessionId, facId, clubCode, userId, Group.Photos, Screens.Photos, Sections.Main, dataChanged,
+                  changeAction)
+    return result
 
 
 @app.route('/getSpecialistNameFromEmail')
@@ -96,10 +269,10 @@ def getFacilitiesWithFilters():
     dba = request.args.get('dba')
     assignedSpecialist = request.args.get('assignedSpecialist')
     contractStatus = request.args.get('contractStatus')
-    queryString = "select RIGHT('00'+ CONVERT(VARCHAR,clubcode),3) as clubcode, facName, active, facNum from csi.dbo.aaafacilities where acnm = 'aaaphone' and RIGHT('00'+ CONVERT(VARCHAR,clubcode),3) like '%" + clubCode + "%' and facName like '%" + dba + "%'"
+    queryString = "select RIGHT('00'+ CONVERT(VARCHAR,clubcode),3) as clubcode, facName, status, facNum from csi.dbo.aaafacilities where acnm = 'aaaphone' and RIGHT('00'+ CONVERT(VARCHAR,clubcode),3) like '%" + clubCode + "%' and facName like '%" + dba + "%'"
 
     if len(contractStatus) > 0:
-        queryString += str(" and active = " + contractStatus)
+        queryString += str(" and status = " + contractStatus)
     if len(facilityNumber) > 0:
         queryString += str(" and facNum like '%" + facilityNumber + "%'")
     if len(assignedSpecialist) > 0:
@@ -340,7 +513,14 @@ def updatePaymentMethodsData():
     paymentMethodID = str(request.args.get('paymentMethodID'))
     insertBy = str(request.args.get('insertBy'))
     insertDate = str(request.args.get('insertDate'))
-    return str(inspectionApis.updatePaymentMethodsData(facNum, clubCode, paymentMethodID, insertBy, insertDate))
+    result = str(inspectionApis.updatePaymentMethodsData(facNum, clubCode, paymentMethodID, insertBy, insertDate))
+    changeAction = str(request.args.get('changeAction'))
+    dataChanged = str(request.args.get('dataChanged'))
+    sessionId = str(request.args.get('sessionId'))
+    userId = str(request.args.get('userId'))
+    if 'returnCode>0<' in result:
+        logAction(sessionId, facNum, clubCode,userId ,Group.Facility, Screens.General, Sections.Main, dataChanged, changeAction)
+    return result
 
 
 @app.route('/getTableTypes')
@@ -401,7 +581,7 @@ def updateFacilityData():
     achParticipant = str(request.args.get('achParticipant'))
     insuranceExpDate = str(request.args.get('insuranceExpDate'))
     contractTypeId = str(request.args.get('contractTypeId'))
-    return str(
+    result = str(
         inspectionApis.updateFacilityData(facNum, clubCode, businessName, busTypeId, entityName, assignToId, officeId
                                           , taxIdNumber, facilityRepairOrderCount, facilityAnnualInspectionMonth,
                                           inspectionCycle,
@@ -413,6 +593,13 @@ def updateFacilityData():
                                           terminationComments, insertBy,
                                           insertDate, updateBy, updateDate
                                           , active, achParticipant, insuranceExpDate, contractTypeId))
+    changeAction = str(request.args.get('changeAction'))
+    dataChanged = str(request.args.get('dataChanged'))
+    sessionId = str(request.args.get('sessionId'))
+    userId = str(request.args.get('userId'))
+    if 'returnCode>0<' in result:
+        logAction(sessionId, facNum,clubCode, userId, Group.Facility, Screens.General, Sections.Main, dataChanged, changeAction)
+    return result
 
 
 @app.route('/updateFacilityAddressData')
@@ -435,11 +622,17 @@ def updateFacilityAddressData():
     updateBy = str(request.args.get('updateBy'))
     updateDate = str(request.args.get('updateDate'))
     active = str(request.args.get('active'))
-
-    return str(
+    result = str(
         inspectionApis.updateFacilityAddressData(facnum, clubcode, locationTypeID, FAC_Addr1, FAC_Addr2, CITY, ST, ZIP,
                                                  Country, BranchName, BranchNumber, LATITUDE, LONGITUDE, insertBy,
                                                  insertDate, updateBy, updateDate, active))
+    changeAction = str(request.args.get('changeAction'))
+    dataChanged = str(request.args.get('dataChanged'))
+    sessionId = str(request.args.get('sessionId'))
+    userId = str(request.args.get('userId'))
+    if 'returnCode>0<' in result:
+        logAction(sessionId, facnum,clubcode, userId, Group.Facility, Screens.Location, Sections.Address, dataChanged, changeAction)
+    return result
 
 
 @app.route('/updateFacilityEmailData')
@@ -454,9 +647,17 @@ def updateFacilityEmailData():
     updateBy = str(request.args.get('updateBy'))
     updateDate = str(request.args.get('updateDate'))
     active = str(request.args.get('active'))
-    return str(
+    result = str(
         inspectionApis.updateFacilityEmailData(facNum, clubCode, emailId, emailTypeId, email, insertBy, insertDate,
                                                updateBy, updateDate, active))
+    changeAction = str(request.args.get('changeAction'))
+    dataChanged = str(request.args.get('dataChanged'))
+    sessionId = str(request.args.get('sessionId'))
+    userId = str(request.args.get('userId'))
+    if 'returnCode>0<' in result:
+        logAction(sessionId, facNum, clubCode, userId, Group.Facility, Screens.Location, Sections.Email, dataChanged, changeAction)
+    return result
+
 
 
 @app.route('/updateFacilityPhoneData')
@@ -473,8 +674,17 @@ def updateFacilityPhoneData():
     updateBy = str(request.args.get('updateBy'))
     updateDate = str(request.args.get('updateDate'))
     active = str(request.args.get('active'))
-    return str(inspectionApis.updateFacilityPhoneData(facNum, clubCode, phoneId, phoneTypeId, phoneNumber, extension,
+    result = str(inspectionApis.updateFacilityPhoneData(facNum, clubCode, phoneId, phoneTypeId, phoneNumber, extension,
                                                       description, insertBy, insertDate, updateBy, updateDate, active))
+    changeAction = str(request.args.get('changeAction'))
+    dataChanged = str(request.args.get('dataChanged'))
+    sessionId = str(request.args.get('sessionId'))
+    userId = str(request.args.get('userId'))
+    if 'returnCode>0<' in result:
+        logAction(sessionId, facNum, clubCode, userId, Group.Facility, Screens.Location, Sections.Phone, dataChanged,
+                  changeAction)
+    return result
+
 
 
 @app.route('/updateFacilityPersonnelData')
@@ -488,6 +698,7 @@ def updateFacilityPersonnelData():
     seniorityDate = str(request.args.get('seniorityDate'))
     certificationNum = str(request.args.get('certificationNum'))
     startDate = str(request.args.get('startDate'))
+    endDate = str(request.args.get('endDate'))
     contractSigner = str(request.args.get('contractSigner'))
     insertBy = str(request.args.get('insertBy'))
     insertDate = str(request.args.get('insertDate'))
@@ -498,11 +709,19 @@ def updateFacilityPersonnelData():
     rsp_userName = str(request.args.get('rsp_userName'))
     rsp_email = str(request.args.get('rsp_email'))
     rsp_phone = str(request.args.get('rsp_phone'))
-    return str(
+    result = str(
         inspectionApis.updateFacilityPersonnelData(facNum, clubCode, personnelId, personnelTypeId, firstName, lastName,
-                                                   seniorityDate, certificationNum, startDate, contractSigner, insertBy,
-                                                   insertDate, updateBy, updateDate, active, primaryMailRecipient,
-                                                   rsp_userName, rsp_email, rsp_phone))
+                                                   seniorityDate, certificationNum, startDate, endDate, contractSigner,
+                                                   insertBy, insertDate, updateBy, updateDate, active,
+                                                   primaryMailRecipient,rsp_userName, rsp_email, rsp_phone))
+    changeAction = str(request.args.get('changeAction'))
+    dataChanged = str(request.args.get('dataChanged'))
+    sessionId = str(request.args.get('sessionId'))
+    userId = str(request.args.get('userId'))
+    if 'returnCode>0<' in result:
+        logAction(sessionId, facNum, clubCode, userId, Group.Facility, Screens.Personnel, Sections.Main, dataChanged,
+                  changeAction)
+    return result
 
 
 @app.route('/updateScopeOfServiceData')
@@ -522,10 +741,19 @@ def updateScopeOfServiceData():
     insertDate = str(request.args.get('insertDate'))
     updateBy = str(request.args.get('updateBy'))
     updateDate = str(request.args.get('updateDate'))
-    return str(
+    result = str(
         inspectionApis.updateScopeOfServiceData(facNum, clubCode, laborRateId, fixedLaborRate, laborMin, laborMax,
                                                 diagnosticRate, numOfBays, numOfLifts, warrantyTypeId, active,
                                                 insertBy, insertDate, updateBy, updateDate))
+    changeAction = str(request.args.get('changeAction'))
+    dataChanged = str(request.args.get('dataChanged'))
+    sessionId = str(request.args.get('sessionId'))
+    userId = str(request.args.get('userId'))
+    if 'returnCode>0<' in result:
+        logAction(sessionId, facNum, clubCode, userId, Group.SoS, Screens.General, Sections.Main, dataChanged,
+                  changeAction)
+    return result
+
 
 
 @app.route('/updateVisitationTrackingData')
@@ -540,8 +768,17 @@ def updateVisitationTrackingData():
     insertDate = str(request.args.get('insertDate'))
     updateBy = str(request.args.get('updateBy'))
     updateDate = str(request.args.get('updateDate'))
-    return str(inspectionApis.updateVisitationTrackingData(facNum, clubCode, visitationId, performedBy, datePerformed,
+    result = str(inspectionApis.updateVisitationTrackingData(facNum, clubCode, visitationId, performedBy, datePerformed,
                                                            dateReceived, insertBy, insertDate, updateBy, updateDate))
+    changeAction = str(request.args.get('changeAction'))
+    dataChanged = str(request.args.get('dataChanged'))
+    sessionId = str(request.args.get('sessionId'))
+    userId = str(request.args.get('userId'))
+    if 'returnCode>0<' in result:
+        logAction(sessionId, facNum, clubCode, userId, Group.Visitation, Screens.Visitation, Sections.Tracking, dataChanged,
+                  changeAction)
+    return result
+
 
 
 @app.route('/updateAARPortalAdminData')
@@ -558,10 +795,18 @@ def updateAARPortalAdminData():
     updateBy = str(request.args.get('updateBy'))
     updateDate = str(request.args.get('updateDate'))
     active = str(request.args.get('active'))
-    return str(
+    result = str(
         inspectionApis.updateAARPortalAdminData(facNum, clubCode, facId, startDate, endDate, addendumSigned,
                                                 cardReaders,
                                                 insertBy, insertDate, updateBy, updateDate, active))
+    changeAction = str(request.args.get('changeAction'))
+    dataChanged = str(request.args.get('dataChanged'))
+    sessionId = str(request.args.get('sessionId'))
+    userId = str(request.args.get('userId'))
+    if 'returnCode>0<' in result:
+        logAction(sessionId, facNum, clubCode, userId, Group.Facility, Screens.RSP, Sections.Admin, dataChanged,
+                  changeAction)
+    return result
 
 
 @app.route('/updateAffiliationsData')
@@ -579,9 +824,17 @@ def updateAffiliationsData():
     insertDate = str(request.args.get('insertDate'))
     updateBy = str(request.args.get('updateBy'))
     updateDate = str(request.args.get('updateDate'))
-    return str(inspectionApis.updateAffiliationsData(facNum, clubCode, affiliationId, affiliationTypeId,
+    result = str(inspectionApis.updateAffiliationsData(facNum, clubCode, affiliationId, affiliationTypeId,
                                                      affiliationTypeDetailsId, effDate, expDate, comment, active,
                                                      insertBy, insertDate, updateBy, updateDate))
+    changeAction = str(request.args.get('changeAction'))
+    dataChanged = str(request.args.get('dataChanged'))
+    sessionId = str(request.args.get('sessionId'))
+    userId = str(request.args.get('userId'))
+    if 'returnCode>0<' in result:
+        logAction(sessionId, facNum, clubCode, userId, Group.SoS, Screens.Affiliations, Sections.Main, dataChanged,
+                  changeAction)
+    return result
 
 
 @app.route('/updateAmendmentOrderTrackingData')
@@ -597,9 +850,17 @@ def updateAmendmentOrderTrackingData():
     updateBy = str(request.args.get('updateBy'))
     updateDate = str(request.args.get('updateDate'))
     active = str(request.args.get('active'))
-    return str(
+    result = str(
         inspectionApis.updateAmendmentOrderTrackingData(facNum, clubCode, facId, aoId, employeeId, reasonId, insertBy,
                                                         insertDate, updateBy, updateDate, active))
+    changeAction = str(request.args.get('changeAction'))
+    dataChanged = str(request.args.get('dataChanged'))
+    sessionId = str(request.args.get('sessionId'))
+    userId = str(request.args.get('userId'))
+    if 'returnCode>0<' in result:
+        logAction(sessionId, facNum, clubCode, userId, Group.Facility, Screens.RSP, Sections.Tracking, dataChanged,
+                  changeAction)
+    return result
 
 
 @app.route('/updateDeficiencyData')
@@ -616,8 +877,16 @@ def updateDeficiencyData():
     insertDate = str(request.args.get('insertDate'))
     updateBy = str(request.args.get('updateBy'))
     updateDate = str(request.args.get('updateDate'))
-    return str(inspectionApis.updateDeficiencyData(facNum, clubCode, defId, defTypeId, visitationDate, enteredDate,
+    result = str(inspectionApis.updateDeficiencyData(facNum, clubCode, defId, defTypeId, visitationDate, enteredDate,
                                                    clearedDate, comments, insertBy, insertDate, updateBy, updateDate))
+    changeAction = str(request.args.get('changeAction'))
+    dataChanged = str(request.args.get('dataChanged'))
+    sessionId = str(request.args.get('sessionId'))
+    userId = str(request.args.get('userId'))
+    if 'returnCode>0<' in result:
+        logAction(sessionId, facNum, clubCode, userId, Group.Deficiency, Screens.Deficiency, Sections.Main, dataChanged,
+                  changeAction)
+    return result
 
 
 @app.route('/updateComplaintFilesData')
@@ -648,13 +917,21 @@ def updateComplaintFilesData():
     insertDate = str(request.args.get('insertDate'))
     updateBy = str(request.args.get('updateBy'))
     updateDate = str(request.args.get('updateDate'))
-    return str(
+    result = str(
         inspectionApis.updateComplaintFilesData(facnum, clubcode, RecordID, ComplaintID, FACID, initiatedBy, IsTowIn,
                                                 IsOutofState, SOSSID, FirstName, LastName, ComplaintNotCounted,
                                                 IsERSComplaint, AssignedTo, ComplaintReasonID, ComplaintResolutionID,
                                                 ReceivedDate, OpenedDate, ClosedDate, SecondOpenedDate,
                                                 SecondClosedDate, WorkDaysNotCounted, insertBy, insertDate, updateBy,
                                                 updateDate))
+    changeAction = str(request.args.get('changeAction'))
+    dataChanged = str(request.args.get('dataChanged'))
+    sessionId = str(request.args.get('sessionId'))
+    userId = str(request.args.get('userId'))
+    if 'returnCode>0<' in result:
+        logAction(sessionId, facnum, clubcode, userId, Group.Complaints, Screens.Complaints, Sections.Main, dataChanged,
+                  changeAction)
+    return result
 
 
 @app.route('/updateFacilityClosureData')
@@ -672,10 +949,18 @@ def updateFacilityClosureData():
     updateBy = str(request.args.get('updateBy'))
     updateDate = str(request.args.get('updateDate'))
     prgFacilityClosureId = str(request.args.get('prgFacilityClosureId'))
-    return str(
+    result = str(
         inspectionApis.updateFacilityClosureData(facNum, clubCode, facilityClosureId, closureId, effDate, expDate,
                                                  comments, active, insertBy, insertDate, updateBy, updateDate,
                                                  prgFacilityClosureId))
+    changeAction = str(request.args.get('changeAction'))
+    dataChanged = str(request.args.get('dataChanged'))
+    sessionId = str(request.args.get('sessionId'))
+    userId = str(request.args.get('userId'))
+    if 'returnCode>0<' in result:
+        logAction(sessionId, facNum, clubCode, userId, Group.Facility, Screens.General, Sections.Main, dataChanged,
+                  changeAction)
+    return result
 
 
 @app.route('/updateFacilityHoursData')
@@ -705,13 +990,21 @@ def updateFacilityHoursData():
     facAvailability = str(request.args.get('facAvailability'))
     availEffDate = str(request.args.get('availEffDate'))
     availExpDate = str(request.args.get('availExpDate'))
-    return str(inspectionApis.updateFacilityHoursData(facNum, clubCode, monOpen, monClose, tueOpen, tueClose, wedOpen,
+    result = str(inspectionApis.updateFacilityHoursData(facNum, clubCode, monOpen, monClose, tueOpen, tueClose, wedOpen,
                                                       wedClose,
                                                       thuOpen, thuClose, friOpen, friClose, satOpen, satClose, sunOpen,
                                                       sunClose,
                                                       nightDrop, nightDropInstr, insertBy, insertDate, updateBy,
                                                       updateDate,
                                                       facAvailability, availEffDate, availExpDate))
+    changeAction = str(request.args.get('changeAction'))
+    dataChanged = str(request.args.get('dataChanged'))
+    sessionId = str(request.args.get('sessionId'))
+    userId = str(request.args.get('userId'))
+    if 'returnCode>0<' in result:
+        logAction(sessionId, facNum, clubCode, userId, Group.Facility, Screens.Location, Sections.Hours, dataChanged,
+                  changeAction)
+    return result
 
 
 @app.route('/updateFacilityManagersData')
@@ -721,7 +1014,15 @@ def updateFacilityManagersData():
     managerId = str(request.args.get('managerId'))
     insertBy = str(request.args.get('insertBy'))
     insertDate = str(request.args.get('insertDate'))
-    return str(inspectionApis.updateFacilityManagersData(facNum, clubCode, managerId, insertBy, insertDate))
+    result = str(inspectionApis.updateFacilityManagersData(facNum, clubCode, managerId, insertBy, insertDate))
+    changeAction = str(request.args.get('changeAction'))
+    dataChanged = str(request.args.get('dataChanged'))
+    sessionId = str(request.args.get('sessionId'))
+    userId = str(request.args.get('userId'))
+    if 'returnCode>0<' in result:
+        logAction(sessionId, facNum, clubCode, userId, Group.Facility, Screens.General, Sections.Main, dataChanged,
+                  changeAction)
+    return result
 
 
 @app.route('/updateFacilityLanguageData')
@@ -731,7 +1032,15 @@ def updateFacilityLanguageData():
     langTypeId = str(request.args.get('langTypeId'))
     insertBy = str(request.args.get('insertBy'))
     insertDate = str(request.args.get('insertDate'))
-    return str(inspectionApis.updateFacilityLanguageData(facNum, clubCode, langTypeId, insertBy, insertDate))
+    result = str(inspectionApis.updateFacilityLanguageData(facNum, clubCode, langTypeId, insertBy, insertDate))
+    changeAction = str(request.args.get('changeAction'))
+    dataChanged = str(request.args.get('dataChanged'))
+    sessionId = str(request.args.get('sessionId'))
+    userId = str(request.args.get('userId'))
+    if 'returnCode>0<' in result:
+        logAction(sessionId, facNum, clubCode, userId, Group.Facility, Screens.Location, Sections.Languages, dataChanged,
+                  changeAction)
+    return result
 
 
 @app.route('/updateFacilityPhotosData')
@@ -749,10 +1058,18 @@ def updateFacilityPhotosData():
     approvedDate = str(request.args.get('approvedDate'))
     lastUpdateBy = str(request.args.get('lastUpdateBy,'))
     lastUpdateDate = str(request.args.get('lastUpdateDate'))
-    return str(
+    result = str(
         inspectionApis.updateFacilityPhotosData(facNum, clubCode, photoId, fileName, fileDescription, primaryPhoto,
                                                 approvalRequest, approved, seqNum, approvedBy, approvedDate,
                                                 lastUpdateBy, lastUpdateDate))
+    changeAction = str(request.args.get('changeAction'))
+    dataChanged = str(request.args.get('dataChanged'))
+    sessionId = str(request.args.get('sessionId'))
+    userId = str(request.args.get('userId'))
+    if 'returnCode>0<' in result:
+        logAction(sessionId, facNum, clubCode, userId, Group.Photos, Screens.Photos, Sections.Main, dataChanged,
+                  changeAction)
+    return result
 
 
 @app.route('/updateFacilityServiceProviderData')
@@ -766,9 +1083,17 @@ def updateFacilityServiceProviderData():
     insertDate = str(request.args.get('insertDate'))
     updateBy = str(request.args.get('updateBy'))
     updateDate = str(request.args.get('updateDate'))
-    return str(
+    result = str(
         inspectionApis.updateFacilityServiceProviderData(facNum, clubCode, srvProviderId, providerNum, active, insertBy,
                                                          insertDate, updateBy, updateDate))
+    changeAction = str(request.args.get('changeAction'))
+    dataChanged = str(request.args.get('dataChanged'))
+    sessionId = str(request.args.get('sessionId'))
+    userId = str(request.args.get('userId'))
+    if 'returnCode>0<' in result:
+        logAction(sessionId, facNum, clubCode, userId, Group.Facility, Screens.General, Sections.Main, dataChanged,
+                  changeAction)
+    return result
 
 
 @app.route('/updateFacilityServicesData')
@@ -785,9 +1110,17 @@ def updateFacilityServicesData():
     insertDate = str(request.args.get('insertDate'))
     updateBy = str(request.args.get('updateBy'))
     updateDate = str(request.args.get('updateDate'))
-    return str(
+    result = str(
         inspectionApis.updateFacilityServicesData(facNum, clubCode, facilityServicesId, serviceId, effDate, expDate,
                                                   comments, active, insertBy, insertDate, updateBy, updateDate))
+    changeAction = str(request.args.get('changeAction'))
+    dataChanged = str(request.args.get('dataChanged'))
+    sessionId = str(request.args.get('sessionId'))
+    userId = str(request.args.get('userId'))
+    if 'returnCode>0<' in result:
+        logAction(sessionId, facNum, clubCode, userId, Group.SoS, Screens.FacilityServices, Sections.Main, dataChanged,
+                  changeAction)
+    return result
 
 
 @app.route('/updateProgramsData')
@@ -804,8 +1137,16 @@ def updateProgramsData():
     insertDate = str(request.args.get('insertDate'))
     updateBy = str(request.args.get('updateBy'))
     updateDate = str(request.args.get('updateDate'))
-    return str(inspectionApis.updateProgramsData(facNum, clubCode, programId, programTypeId, effDate, expDate, comments,
+    result = str(inspectionApis.updateProgramsData(facNum, clubCode, programId, programTypeId, effDate, expDate, comments,
                                                  active, insertBy, insertDate, updateBy, updateDate))
+    changeAction = str(request.args.get('changeAction'))
+    dataChanged = str(request.args.get('dataChanged'))
+    sessionId = str(request.args.get('sessionId'))
+    userId = str(request.args.get('userId'))
+    if 'returnCode>0<' in result:
+        logAction(sessionId, facNum, clubCode, userId, Group.SoS, Screens.Programs, Sections.Main, dataChanged,
+                  changeAction)
+    return result
 
 
 @app.route('/updateSurveySoftwaresData')
@@ -830,7 +1171,7 @@ def updateSurveySoftwaresData():
     insertDate = str(request.args.get('insertDate'))
     updateBy = str(request.args.get('updateBy'))
     updateDate = str(request.args.get('updateDate'))
-    return str(inspectionApis.updateSurveySoftwaresData(facNum, clubCode, softwareSurveyNum, repairSoftwareId,
+    result = str(inspectionApis.updateSurveySoftwaresData(facNum, clubCode, softwareSurveyNum, repairSoftwareId,
                                                         repairSoftwareVersion, repairSoftwarePurchaseY,
                                                         repairSoftwarePurchaseAmt, repairSoftwareMonthlyFee,
                                                         repairSoftwareOnetimeFee, shopMgmtSoftwareName,
@@ -838,6 +1179,14 @@ def updateSurveySoftwaresData():
                                                         shopMgmtSoftwarePurcharAmt, shopMgmtSoftwareMonthlyFee,
                                                         shopMgmtSoftwareOnetimeFee, surveyCompleteDate, insertBy,
                                                         insertDate, updateBy, updateDate))
+    changeAction = str(request.args.get('changeAction'))
+    dataChanged = str(request.args.get('dataChanged'))
+    sessionId = str(request.args.get('sessionId'))
+    userId = str(request.args.get('userId'))
+    if 'returnCode>0<' in result:
+        logAction(sessionId, facNum, clubCode, userId, Group.Surveys, Screens.General, Sections.Main, dataChanged,
+                  changeAction)
+    return result
 
 
 @app.route('/updateVisitationDetailsData')
@@ -853,9 +1202,28 @@ def updateVisitationDetailsData():
     insertDate = str(request.args.get('insertDate'))
     updateBy = str(request.args.get('updateBy'))
     updateDate = str(request.args.get('updateDate'))
-    return str(inspectionApis.updateVisitationDetailsData(facNum, clubCode, staffTraining, qualityControl, aarSigns,
-                                                          certificateOfApproval, memberBenefitPoster, insertBy,
+    result = str(inspectionApis.updateVisitationDetailsData(facNum, clubCode, staffTraining, qualityControl, aarSigns,
+                                                       certificateOfApproval, memberBenefitPoster, insertBy,
                                                           insertDate, updateBy, updateDate))
+    # changeAction = str(request.args.get('changeAction'))
+    # dataChanged = str(request.args.get('dataChanged'))
+    sessionId = str(request.args.get('sessionId'))
+    userId = str(request.args.get('userId'))
+    # if 'returnCode>0<' in result:
+    #     logAction(sessionId, facNum, clubCode, userId, Group.Visitation, Screens.Visitation, Sections.Detail, dataChanged,
+    #               changeAction)
+    visitationType = str(request.args.get('visitationType'))
+    visitationReason = str(request.args.get('visitationReason'))
+    emailPDF = str(request.args.get('emailPDF'))
+    emailTo = str(request.args.get('emailTo'))
+    waiveVisitation = str(request.args.get('waiveVisitation'))
+    waiveComments = str(request.args.get('waiveComments'))
+    facilityRep = str(request.args.get('facilityRep'))
+    if 'returnCode>0<' in result:
+        logVisitationHeader(sessionId, facNum, clubCode, userId, visitationType, visitationReason, emailPDF,
+                  emailTo,waiveVisitation,waiveComments,facilityRep)
+
+    return result
 
 
 @app.route('/updateFacilityVehicles')
@@ -865,7 +1233,15 @@ def updateFacilityVehicles():
     vehicleId = str(request.args.get('vehicleId'))
     insertBy = str(request.args.get('insertBy'))
     insertDate = str(request.args.get('insertDate'))
-    return str(inspectionApis.updateFacilityVehicles(facnum, clubcode, vehicleId, insertBy, insertDate))
+    result = str(inspectionApis.updateFacilityVehicles(facnum, clubcode, vehicleId, insertBy, insertDate))
+    changeAction = str(request.args.get('changeAction'))
+    dataChanged = str(request.args.get('dataChanged'))
+    sessionId = str(request.args.get('sessionId'))
+    userId = str(request.args.get('userId'))
+    if 'returnCode>0<' in result:
+        logAction(sessionId, facnum, clubcode, userId, Group.SoS, Screens.Vehicles, Sections.Main, dataChanged,
+                  changeAction)
+    return result
 
 
 @app.route('/updatePersonnelCertification')
@@ -883,9 +1259,17 @@ def updatePersonnelCertification():
     updateBy = str(request.args.get('updateBy,'))
     updateDate = str(request.args.get('updateDate'))
     active = str(request.args.get('active'))
-    return str(inspectionApis.updatePersonnelCertification(facnum, clubcode, personnelId, certId, certificationTypeId,
+    result = str(inspectionApis.updatePersonnelCertification(facnum, clubcode, personnelId, certId, certificationTypeId,
                                                            certificationDate, expirationDate, certDesc, insertBy,
                                                            insertDate, updateBy, updateDate, active))
+    changeAction = str(request.args.get('changeAction'))
+    dataChanged = str(request.args.get('dataChanged'))
+    sessionId = str(request.args.get('sessionId'))
+    userId = str(request.args.get('userId'))
+    if 'returnCode>0<' in result:
+        logAction(sessionId, facnum, clubcode, userId, Group.Facility, Screens.Personnel, Sections.Certifications, dataChanged,
+                  changeAction)
+    return result
 
 
 @app.route('/updateFacilityPersonnelSignerData')
@@ -908,10 +1292,18 @@ def updateFacilityPersonnelSignerData():
     updateBy = str(request.args.get('updateBy'))
     updateDate = str(request.args.get('updateDate'))
     active = str(request.args.get('active'))
-    return str(
+    result = str(
         inspectionApis.updateFacilityPersonnelSignerData(facnum, clubcode, personnelId, addr1, addr2, city, st, zip,
                                                          zip4, phone, email, contractStartDate, contractEndDate,
                                                          insertBy, insertDate, updateBy, updateDate, active))
+    # changeAction = str(request.args.get('changeAction'))
+    # dataChanged = str(request.args.get('dataChanged'))
+    # sessionId = str(request.args.get('sessionId'))
+    # userId = str(request.args.get('userId'))
+    # if 'returnCode>0<' in result:
+    #     logAction(sessionId, facnum, clubcode, userId, Group.Facility, Screens.Personnel, Sections.Signer, dataChanged,
+    #               changeAction)
+    return result
 
 
 @app.route('/updateVehicleServices')
@@ -921,7 +1313,15 @@ def updateVehicleServices():
     vehiclesTypeId = str(request.args.get('vehiclesTypeId'))
     scopeServiceId = str(request.args.get('scopeServiceId'))
     insertBy = str(request.args.get('insertBy'))
-    return str(inspectionApis.updateVehicleServices(facnum, clubcode, vehiclesTypeId, scopeServiceId, insertBy))
+    result = str(inspectionApis.updateVehicleServices(facnum, clubcode, vehiclesTypeId, scopeServiceId, insertBy))
+    changeAction = str(request.args.get('changeAction'))
+    dataChanged = str(request.args.get('dataChanged'))
+    sessionId = str(request.args.get('sessionId'))
+    userId = str(request.args.get('userId'))
+    if 'returnCode>0<' in result:
+        logAction(sessionId, facnum, clubcode, userId, Group.SoS, Screens.VehicleServices, Sections.Main, dataChanged,
+                  changeAction)
+    return result
 
 
 @app.route('/updateAARPortalTracking')
@@ -940,11 +1340,19 @@ def updateAARPortalTracking():
     updateBy = str(request.args.get('updateBy'))
     updateDate = str(request.args.get('updateDate'))
     active = str(request.args.get('active'))
-    return str(
+    result = str(
         inspectionApis.updateAARPortalTracking(facnum, clubcode, facId, trackingId, portalInspectionDate,
                                                loggedIntoPortal,
                                                numberUnacknowledgedTows, inProgressTows, inProgressWalkIns, insertBy,
                                                insertDate, updateBy, updateDate, active))
+    changeAction = str(request.args.get('changeAction'))
+    dataChanged = str(request.args.get('dataChanged'))
+    sessionId = str(request.args.get('sessionId'))
+    userId = str(request.args.get('userId'))
+    if 'returnCode>0<' in result:
+        logAction(sessionId, facnum, clubcode, userId, Group.Facility, Screens.RSP, Sections.Tracking, dataChanged,
+                  changeAction)
+    return result
 
 
 @app.route('/updateVehicles')
@@ -954,7 +1362,15 @@ def updateVehicles():
     vehicleid = str(request.args.get('VehicleID'))
     insertDate = str(request.args.get('insertDate'))
     insertBy = str(request.args.get('insertBy'))
-    return str(inspectionApis.updateVehicles(facnum, clubcode, vehicleid, insertDate, insertBy))
+    result = str(inspectionApis.updateVehicles(facnum, clubcode, vehicleid, insertDate, insertBy))
+    changeAction = str(request.args.get('changeAction'))
+    dataChanged = str(request.args.get('dataChanged'))
+    sessionId = str(request.args.get('sessionId'))
+    userId = str(request.args.get('userId'))
+    if 'returnCode>0<' in result:
+        logAction(sessionId, facnum, clubcode, userId, Group.SoS, Screens.Vehicles, Sections.Main, dataChanged,
+                  changeAction)
+    return result
 
 
 @app.route('/authenticate')
@@ -972,10 +1388,11 @@ def resetPassword():
         "select count(*) from v2reports.dbo.V2Login where lower(email) = '" + email + "'")
     if result > 0:
         randomPassword = getRandomPass()
-        sendMailTo(email, randomPassword)
+        # DbConnection.sendPassResetMail('saeed@pacificresearchgroup.com', randomPassword)
+        sendMailTo(email,randomPassword)
         updateStatement = "update v2reports.dbo.v2login set temppassword = '" + randomPassword + "' where Email = '" + email + "'"
         DbConnection.updateCsiDB(updateStatement)
-        return "Success"
+        return 'Success'
     else:
         return "invalid email/username"
 
