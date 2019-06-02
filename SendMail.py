@@ -6,9 +6,11 @@ from email import encoders
 from email.mime.base import MIMEBase
 
 def sendMailTo(userMail, tempPass):
-    sender_email = "sherif@pacificresearchgroup.com"
+    sender_email = "noreply@pacificresearchgroup.com"
     receiver_email = userMail
-    password = "smmmo1985"
+    # password = "m5jK2F=H"
+    # password = "smmmo1985"
+    password = "Surfing123!"
 
     message = MIMEMultipart("alternative")
     message["Subject"] = "ACE AAR Inspection: Reset Password"
@@ -53,14 +55,17 @@ def sendMailTo(userMail, tempPass):
 
 
 def sendPDFTo(userMail, fileName, type):
-    sender_email = "sherif@pacificresearchgroup.com"
+    sender_email = "NoReply@pacificresearchgroup.com"
+    receiver_email = "saeed.mostafa.omar@gmail.com"
     receiver_email = userMail
-    password = "smmmo1985"
-
+        # userMail
+    # password = "smmmo1985"
+    # password = "m5jK2F=H"
+    password = "Surfing123!"
     message = MIMEMultipart()
     message["Subject"] = "ACE AAR Inspection: Visitation PDF for " + type
     message["From"] = sender_email
-    message["To"] = userMail
+    message["To"] = receiver_email
     # message["CC"] = 'saeed@pacificresearchgroup.com'
 
     filePath = '/var/www/Inspection/WebServices/PRG/uploads/' + fileName

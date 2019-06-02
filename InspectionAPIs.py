@@ -3,12 +3,14 @@ import os.path
 
 
 class InspectionAPIs:
-    url = 'https://uat.b2b.autoclubextranet.com/prg/ProcessRequest'
+    # url = 'https://uat.b2b.autoclubextranet.com/prg/ProcessRequest'
+    url = 'https://b2b.autoclubextranet.com/prg/ProcessRequest'
 
     def __init__(self):
         headers = {'content-type': 'text/xml'}
         my_path = os.path.abspath(os.path.dirname(__file__))
-        cert = (os.path.join(my_path, "certs/cert.crt"), os.path.join(my_path, "certs/nopassword.key"))
+        #cert = (os.path.join(my_path, "certs/cert.crt"), os.path.join(my_path, "certs/nopassword.key"))
+        cert = (os.path.join(my_path, "certs/prod/cert.crt"), os.path.join(my_path, "certs/prod/nopass.key"))
         self.requestDictionary = {'headers': headers, 'cert': cert}
         pass
 

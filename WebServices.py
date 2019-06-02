@@ -19,6 +19,7 @@ class Group():
     Billing = "Billing"
     Surveys = "Surveys"
     Photos = "Photos"
+    Login = "Login"
 
 
 class Screens():
@@ -35,6 +36,8 @@ class Screens():
     Deficiency = "Deficiency"
     Complaints = "Complaints"
     Photos = "Photos"
+    LoginTrial = "Login Trial"
+    ResetPassword= "Reset Password"
 
 
 class Sections():
@@ -50,6 +53,9 @@ class Sections():
     Certifications = "Certifications"
     Detail = "Details"
     Signer = "Contract Signer"
+    LoginSucceeded = "Success"
+    LoginFailed = "Failed"
+    ResetFailed = "Invalid Email"
 
 
 
@@ -73,7 +79,22 @@ def uploadFile():
         filename = secure_filename(file.filename)
         file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
         sendPDFTo(specialistEmail,filename, type)
+        sendPDFTo('Brandon.Rick@aaa-calif.com', filename, type)
+        sendPDFTo('saeed@pacificresearchgroup.com', filename, type)
         return 'File uploded succesfully'
+
+
+@app.route('/sendCompletedPDF')
+def sendCompletedPDF():
+    shopEmail = request.args.get('email')
+    specialistEmail = request.args.get('specialistEmail')
+    visitationID = request.args.get('visitationID')
+    sendPDFTo(shopEmail, visitationID + "_VisitationDetails_ForShop.pdf", "Shop")
+    sendPDFTo('Brandon.Rick@aaa-calif.com', visitationID+"_VisitationDetails_ForShop.pdf", "Shop")
+    sendPDFTo(specialistEmail, visitationID + "_VisitationDetails_ForSpecialist.pdf", "Specialist")
+    sendPDFTo('Brandon.Rick@aaa-calif.com', visitationID + "_VisitationDetails_ForSpecialist.pdf", "Specialist")
+    # sendPDFTo('saeed@pacificresearchgroup.com', visitationID+"_VisitationDetails_ForSpecialist.pdf", "Specialist")
+    return 'Success'
 
 
 @app.route('/uploadPhoto', methods=['POST'])
@@ -93,7 +114,7 @@ inspectionApis = InspectionAPIs()
 
 
 def getRandomPass():
-    s = "abcdefghijklmnopqrstuvwxyz01234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$%^*()?"
+    s = "abcdefghijklmnopqrstuvwxyz01234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ#$%*"
     passlen = 8
     p = "".join(random.sample(s, passlen))
     return p
@@ -104,8 +125,70 @@ def logAction(sessionid,facid,clubcode,userid,groupname,screenname,sectionname,d
     statement = "insert into tblPRGLogChanges values ('"+sessionid+"',"+facid+","+clubcode+",'"+userid+"','"+groupname+"','"+screenname+"','"+sectionname+"',"+action+",'"+datachanged+"',current_timestamp)"
     return str(DbConnection.updateDB(statement))
 
-def logVisitationHeader(sessionid,facid,clubcode,userid,visitationType,visitationReason,emailPDF,emailTo,waiveVisitation,waiveComments,facilityRep):
-    statement = "insert into tblPRGVisitationHeader values ('" + sessionid + "'," + facid + "," + clubcode + ",'" + userid + "',current_timestamp,'" + visitationType + "','" + visitationReason + "'," + emailPDF + ",'" + emailTo + "'," + waiveVisitation + ",'" + waiveComments + "','" + facilityRep + "')"
+
+def saveCompletedVisitation(facid,clubcode,visitationid,visitationtype):
+    statement = "insert into tblPRGCompletedVisitations values ("+facid+","+clubcode+",'"+visitationid+"',current_timestamp,'"+visitationtype+"')"
+    return str(DbConnection.updateDB(statement))
+
+
+def markVisitationLogAsCompleted(facid,clubcode,visitationtype):
+    statement = "update tblPRGVisitationsLog set completed=1 where facid="+facid+" and clubcode=" + clubcode +" and visitationtype='"+visitationtype+"'"
+    return str(DbConnection.updateDB(statement))
+
+
+@app.route('/saveVisitedScreens')
+def saveVisitedScreens():
+    facid = request.args.get('facId')
+    clubcode = request.args.get('clubCode')
+    sessionid = request.args.get('sessionId')
+    FacAnnualInspectionMonth = request.args.get('facAnnualInspectionMonth')
+    InspectionCycle = request.args.get('inspectionCycle')
+    UserID = request.args.get('userId')
+    visitedScreens = request.args.get('visitedScreens')
+    visitationtype = request.args.get('visitationType')
+    cancelled = request.args.get('cancelled')
+    result = DbConnection.getCountFromDB(
+        "select count(1) from tblPRGVisitationsLog where facid="+facid+" and clubcode = "+clubcode+" and sessionid = '" + sessionid + "' and cancelled=0 and completed =0 and visitationtype = '"+visitationtype+"'")
+    if result > 0:
+        statement = "update tblPRGVisitationsLog set visitedscreens = '"+visitedScreens+"',changeDate=current_timestamp,cancelled="+cancelled+" where facid="+facid+" and clubcode = "+clubcode+" and sessionid = '" + sessionid + "' and cancelled=0 and completed =0 and sessionid = '" + sessionid + "' and visitationtype = '"+visitationtype+"'"
+    else:
+        statement = "update tblPRGVisitationsLog set cancelled=1,changeDate=current_timestamp where facid=" + facid + " and clubcode = " + clubcode + " and cancelled=0 and completed =0 and visitationtype = '" + visitationtype + "'"
+        str(DbConnection.updateDB(statement))
+        statement = "insert into tblPRGVisitationsLog values (" + facid + "," + clubcode + ",'" + sessionid + "'," + FacAnnualInspectionMonth + ",'" + InspectionCycle + "','" + visitationtype + "','" + UserID + "','" + visitedScreens + "',current_timestamp,0,0)"
+    return str(DbConnection.updateDB(statement))
+
+
+
+@app.route('/logTracking')
+def logTracking():
+    sessionId = request.args.get('sessionId')
+    userId = request.args.get('userId')
+    deviceId = request.args.get('deviceId')
+    latitude = request.args.get('latitude')
+    longitude = request.args.get('longitude')
+    statement = "insert into tblPRGDeviceTracking values ('"+sessionId+"','"+deviceId+"','"+userId+"','"+latitude+"','"+longitude+"',current_timestamp)"
+    return str(DbConnection.updateDB(statement))
+
+
+def logVisitationHeader(sessionid,facid,clubcode,userid,visitationType,visitationReason,emailPDF,emailTo,waiveVisitation,waiveComments,facilityRep,automotiveSpecialist,visitationId):
+    saveCompletedVisitation(facid,clubcode,visitationId,visitationType)
+    markVisitationLogAsCompleted(facid,clubcode,visitationType)
+    result = DbConnection.getCountFromDB(
+        "select count(1) from tblPRGVisitationHeader where facid=" + facid + " and clubcode = " + clubcode + " and visitationid =0 and visitationtype = '" + visitationType + "'")
+    if result > 0: # to update currently in progress data
+        statement = "update tblPRGVisitationHeader set userid='" + userid + "',changeDate=current_timestamp,visitationreason='" + visitationReason + "',emailpdf=" + emailPDF + ",emailto='" + emailTo + "',waivevisitation=" + waiveVisitation + ",waivecomments='" + waiveComments + "',facilityrep='" + facilityRep + "',automotiveSpecialist ='" + automotiveSpecialist + "',visitationid='" + visitationId + "' where facid="+facid+" and clubcode="+clubcode+" and visitationid =0 and visitationtype = '" + visitationType + "'"
+    else:
+        statement = "insert into tblPRGVisitationHeader values ('" + sessionid + "'," + facid + "," + clubcode + ",'" + userid + "',current_timestamp,'" + visitationType + "','" + visitationReason + "'," + emailPDF + ",'" + emailTo + "'," + waiveVisitation + ",'" + waiveComments + "','" + facilityRep + "','"+automotiveSpecialist+"','"+visitationId+"','','','','','')"
+    return str(DbConnection.updateDB(statement))
+
+
+def logVisitationHeaderProgress(sessionId, facid, clubcode, userId, visitationType, visitationReason, emailPDF,emailTo,waiveVisitation,waiveComments,facilityRep,automotiveSpecialist,visitationId,staffTraining,qualityControl,aarSigns,certificateOfApproval,memberBenefitPoster):
+    result = DbConnection.getCountFromDB(
+        "select count(1) from tblPRGVisitationHeader where facid=" + facid + " and clubcode =" + clubcode + " and visitationid=0 and visitationtype= '" + visitationType + "'")
+    if result > 0:  # to update currently in progress data
+        statement = "update tblPRGVisitationHeader set userid='" + userId + "',changeDate=current_timestamp,visitationreason='" + visitationReason + "',emailpdf=" + emailPDF + ",emailto='" + emailTo + "',waivevisitation=" + waiveVisitation + ",waivecomments='" + waiveComments + "',facilityrep='" + facilityRep + "',automotiveSpecialist ='" + automotiveSpecialist + "',visitationid='" + visitationId + "',staffTraining='"+staffTraining+"',qualityControl='"+qualityControl+"',aarSigns='"+aarSigns+"',certificateOfApproval='"+certificateOfApproval+"',memberBenefitPoster='"+memberBenefitPoster+"' where facid=" + facid + " and clubcode=" + clubcode + " and visitationid =0 and visitationtype = '" + visitationType + "'"
+    else:
+        statement = "insert into tblPRGVisitationHeader values ('" + sessionId + "'," + facid + "," + clubcode + ",'" + userId + "',current_timestamp,'" + visitationType + "','" + visitationReason + "'," + emailPDF + ",'" + emailTo + "'," + waiveVisitation + ",'" + waiveComments + "','" + facilityRep + "','" + automotiveSpecialist + "','" + visitationId + "','"+staffTraining+"','"+qualityControl+"','"+aarSigns+"','"+certificateOfApproval+"','"+memberBenefitPoster+"')"
     return str(DbConnection.updateDB(statement))
 
 
@@ -116,8 +199,8 @@ def getRequestParam(req, param):
 @app.route('/getAllFacilities')
 def getAllFacilities():
     return DbConnection.queryCsiDB(
-        "select clubcode, facnum, facname from csi.dbo.AAAFacilities where acnm = 'aaaphone' and active = 1")
-
+        "select distinct(RIGHT('00'+ CONVERT(VARCHAR,a.clubcode),3)) as clubcode, a.facnum, a.facname, b.AccSpecID as specialistid from csi.dbo.AAAFacilities a, csi.dbo.aaaspecialist b where a.SpecialistID = b.ID and a.acnm = 'aaaphone' and active = 1")
+# "select clubcode, facnum, facname from csi.dbo.AAAFacilities where acnm = 'aaaphone' and active = 1")
 
 # GET /api.asmx/SendTransactionalEmail?Username=string&Password=string&FromEmail=string&FromName=string&ToEmailAddress=string&Subject=string&MessagePlain=string&MessageHTML=string&Options=string HTTP/1.1
 
@@ -153,6 +236,11 @@ def getLoggedActions():
     return DbConnection.queryDb(
         "select * from tblPRGLogChanges where FacId="+facnum+" and ClubCode="+clubcode+" and userId='"+userid+"'")
 
+@app.route('/getAllLoggedActions')
+def getAllLoggedActions():
+    return DbConnection.queryDb(
+        "select * from tblPRGLogChanges order by changeDate desc")
+
 
 @app.route('/getVisitationHeader')
 def getVisitationHeader():
@@ -162,6 +250,17 @@ def getVisitationHeader():
         "select top 1 * from tblPRGVisitationHeader where FacId="+facnum+" and ClubCode="+clubcode+" order by recordId desc")
 
 
+@app.route('/getPRGCompletedVisitations')
+def getPRGCompletedVisitations():
+    return DbConnection.queryDb(
+        "select * ,Month(CompletionDate) as completionmonth from tblPRGCompletedVisitations where completiondate>=current_timestamp - 90")
+
+
+@app.route('/getPRGVisitationsLog')
+def getPRGVisitationsLog():
+    return DbConnection.queryDb(
+        "select * ,Month(changeDate) as changemonth  from tblPRGVisitationsLog where changeDate>=current_timestamp - 90 and cancelled = 0 and completed=0")
+
 
 @app.route('/getFacilityData')
 def getFacilityData():
@@ -169,6 +268,40 @@ def getFacilityData():
     clubcode = request.args.get('clubcode')
     return str(
         inspectionApis.getFacilityData(facnum, clubcode))
+
+@app.route('/getFacilityEmails')
+def getFacilityEmails():
+    return DbConnection.getFacilityEmailsFromDB()
+
+
+@app.route('/fillFacilityEmailsData')
+def fillFacilityEmailsData():
+    # facnum = request.args.get('facnum')
+    # clubcode = request.args.get('clubcode')
+    # result = getFacilityEmailsByFacNum('2033','252')
+    # result += "\n" + getFacilityEmailsByFacNum('5266', '252')
+    DbConnection.getFacNumAndClubs()
+    return 'SUCCESS'
+
+
+# @app.route('/getFacilityEmailsByFacNum')
+@staticmethod
+def getFacilityEmailsByFacNum(facnum,clubcode):
+    # facnum = request.args.get('facnum')
+    # clubcode = request.args.get('clubcode')
+    result = str(inspectionApis.getFacilityData(facnum, clubcode))
+    indexFrom = result.find("<tblFacilityEmail>")
+    indexTo = result.rfind("</tblFacilityEmail>")
+    result = result[indexFrom:indexTo + 19]
+    emails = "FacNo:"+facnum+" - ClubCode:"+clubcode+" - emails:"
+    while result.find("<email>")>-1:
+        indexFrom = result.find("<email>")
+        indexTo = result.find("</email>")
+        emails += result[indexFrom+7:indexTo] + ","
+        indexFrom = indexTo+8
+        indexTo = result.rfind("</email>")+8
+        result = result[indexFrom:indexTo ]
+    return DbConnection.updateCsiDB("insert into AAAFacilityEmails values ("+facnum+",'"+clubcode+"','','','','"+emails[:-1]+"')")
 
 
 @app.route('/getAllSpecialists')
@@ -270,7 +403,6 @@ def getFacilitiesWithFilters():
     assignedSpecialist = request.args.get('assignedSpecialist')
     contractStatus = request.args.get('contractStatus')
     queryString = "select RIGHT('00'+ CONVERT(VARCHAR,clubcode),3) as clubcode, facName, status, facNum from csi.dbo.aaafacilities where acnm = 'aaaphone' and RIGHT('00'+ CONVERT(VARCHAR,clubcode),3) like '%" + clubCode + "%' and facName like '%" + dba + "%'"
-
     if len(contractStatus) > 0:
         queryString += str(" and status = " + contractStatus)
     if len(facilityNumber) > 0:
@@ -350,6 +482,11 @@ def getProgramTypes():
 #     facilityId = str(request.args.get('facilityId'))
 #     return DbConnection.queryDb(
 #         "select a.RecordID,a.ComplaintID,a.FirstName,a.LastName,a.ReceivedDate,c.ComplaintReasonName,(select count(1) from tblComplaintFiles$ cf where a.FACID=cf.FACID and cf.ReceivedDate>=current_timestamp-365) as NoOfComplaintsLastYear from tblComplaintFiles$ a,tblComplaintFilesReason$ b, tblComplaintFilesReasonType$ c where a.RecordID=b.ComplaintRecordID and b.ComplaintReasonID=c.ComplaintReasonID and ComplaintNotCounted=0 and FACID = " + facilityId)
+
+@app.route('/getFacilityEmailsFromDB')
+def getFacilityEmailsFromDB():
+    return DbConnection.queryDb(
+        "select FacID,'EMAIL' as ContactType,emailTypeId as 'TYPE',case (emailTypeId) when 0 then 'Business' else 'Personal' END as 'TypeName',email as 'ContactDetail' from tblFacilityEmail$")
 
 
 @app.route('/getFacilityEmailAndPhone')
@@ -1205,13 +1342,8 @@ def updateVisitationDetailsData():
     result = str(inspectionApis.updateVisitationDetailsData(facNum, clubCode, staffTraining, qualityControl, aarSigns,
                                                        certificateOfApproval, memberBenefitPoster, insertBy,
                                                           insertDate, updateBy, updateDate))
-    # changeAction = str(request.args.get('changeAction'))
-    # dataChanged = str(request.args.get('dataChanged'))
     sessionId = str(request.args.get('sessionId'))
     userId = str(request.args.get('userId'))
-    # if 'returnCode>0<' in result:
-    #     logAction(sessionId, facNum, clubCode, userId, Group.Visitation, Screens.Visitation, Sections.Detail, dataChanged,
-    #               changeAction)
     visitationType = str(request.args.get('visitationType'))
     visitationReason = str(request.args.get('visitationReason'))
     emailPDF = str(request.args.get('emailPDF'))
@@ -1219,11 +1351,38 @@ def updateVisitationDetailsData():
     waiveVisitation = str(request.args.get('waiveVisitation'))
     waiveComments = str(request.args.get('waiveComments'))
     facilityRep = str(request.args.get('facilityRep'))
+    automotiveSpecialist = str(request.args.get('automotiveSpecialist'))
+    visitationId = str(request.args.get('visitationId'))
     if 'returnCode>0<' in result:
         logVisitationHeader(sessionId, facNum, clubCode, userId, visitationType, visitationReason, emailPDF,
-                  emailTo,waiveVisitation,waiveComments,facilityRep)
+                  emailTo,waiveVisitation,waiveComments,facilityRep,automotiveSpecialist,visitationId)
 
     return result
+
+
+@app.route('/updateVisitationDetailsDataProgress')
+def updateVisitationDetailsDataProgress():
+    facNum = str(request.args.get('facnum'))
+    clubCode = str(request.args.get('clubcode'))
+    staffTraining = str(request.args.get('StaffTraining'))
+    qualityControl = str(request.args.get('QualityControl'))
+    aarSigns = str(request.args.get('AARSigns'))
+    certificateOfApproval = str(request.args.get('CertificateOfApproval'))
+    memberBenefitPoster = str(request.args.get('MemberBenefitPoster'))
+    sessionId = str(request.args.get('sessionId'))
+    userId = str(request.args.get('userId'))
+    visitationType = str(request.args.get('visitationType'))
+    visitationReason = str(request.args.get('visitationReason'))
+    emailPDF = str(request.args.get('emailPDF'))
+    emailTo = str(request.args.get('emailTo'))
+    waiveVisitation = str(request.args.get('waiveVisitation'))
+    waiveComments = str(request.args.get('waiveComments'))
+    facilityRep = str(request.args.get('facilityRep'))
+    automotiveSpecialist = str(request.args.get('automotiveSpecialist'))
+    visitationId = '0'
+    return logVisitationHeaderProgress(sessionId, facNum, clubCode, userId, visitationType, visitationReason, emailPDF,
+              emailTo,waiveVisitation,waiveComments,facilityRep,automotiveSpecialist,visitationId,staffTraining,qualityControl,aarSigns,certificateOfApproval,memberBenefitPoster)
+
 
 
 @app.route('/updateFacilityVehicles')
@@ -1377,6 +1536,8 @@ def updateVehicles():
 def authenticate():
     email = str(request.args.get('email'))
     password = str(request.args.get('password'))
+    logAction('NO ID', '0', '0', '', Group.Login, Screens.LoginTrial, Sections.LoginSucceeded, 'Login Trial with email : ' + email,
+              '0')
     return DbConnection.queryCsiDB(
         "exec v2reports.dbo.InspectionLogin @email='" + email + "', @password = '" + password + "';")
 
@@ -1384,16 +1545,21 @@ def authenticate():
 @app.route('/resetPassword')
 def resetPassword():
     email = str(request.args.get('email'))
+    # sessionId = str(request.args.get('sessionId'))
+    # dataChanged = str(request.args.get('dataChanged'))
     result = DbConnection.getCountFromCsiDB(
         "select count(*) from v2reports.dbo.V2Login where lower(email) = '" + email + "'")
     if result > 0:
         randomPassword = getRandomPass()
-        # DbConnection.sendPassResetMail('saeed@pacificresearchgroup.com', randomPassword)
         sendMailTo(email,randomPassword)
         updateStatement = "update v2reports.dbo.v2login set temppassword = '" + randomPassword + "' where Email = '" + email + "'"
         DbConnection.updateCsiDB(updateStatement)
+        # logAction(sessionId, '0', '0', '', Group.Login, Screens.ResetPassword, Sections.LoginSucceeded, dataChanged,
+        #           '0')
         return 'Success'
     else:
+        # logAction(sessionId, '0', '0', "", Group.Login, Screens.ResetPassword, Sections.ResetFailed, dataChanged,
+        #           '0')
         return "invalid email/username"
 
 
@@ -1413,3 +1579,120 @@ def catch_all(path):
 
 if __name__ == '__main__':
     app.run()
+
+
+# Web Services to be used for standalone App
+
+def getSchemaOf(clientid):
+    if clientid == '2':
+        return "AAAClient"
+
+
+
+@app.route('/testWS')
+def testWS():
+    return "Done ....."
+
+
+@app.route('/authenticatePRG')
+def authenticatePRG():
+    email = str(request.args.get('email'))
+    password = str(request.args.get('password'))
+    result = DbConnection.getCountFromDB("select count(1) from AAAMaster.tblPRGUsers where lower(email) = '" + email + "' and temppassword = '"+password+"'")
+    if result > 0:
+        return "0"
+    else:
+        result = DbConnection.getCountFromDB(
+            "SELECT COUNT(1) FROM AAAMaster.tblPRGUsers WHERE lower(email) = lower('" + email + "') and password= '" + password + "'")
+        if result > 0:
+            return DbConnection.queryDb(
+            "SELECT b.clientId FROM AAAMaster.tblPRGUsers a, AAAMaster.tblPRGClients b where a.clientId = b.clientId and lower(email) = lower('" + email + "') and password= '" + password + "'")
+        else:
+            return "-1"
+
+
+@app.route('/getPRGTypeTables')
+def getPRGTypeTables():
+    clientId= request.args.get('clientId')
+    schemaName = getSchemaOf(clientId)
+    result = DbConnection.queryDbTypeTables(schemaName,clientId)
+    return result
+
+
+@app.route('/getPRGVisitations')
+def getPRGVisitations():
+    facNum = str(request.args.get('facNum'))
+    clubCode = str(request.args.get('clubCode'))
+    specialist = str(request.args.get('specialist'))
+    facilityName = str(request.args.get('facilityName'))
+    inspectionMonth = str(request.args.get('inspectionMonth'))
+    inspectionYear = str(request.args.get('inspectionYear'))
+    visitationType = str(request.args.get('visitationType'))
+    clientId = str(request.args.get('clientId'))
+    visitationStatus = str(request.args.get('visitationStatus'))
+    whereCon = "1=1"
+    if facNum is not "":
+        whereCon += " and facNo = " + facNum
+    if clubCode is not "":
+        whereCon += " and clubCode = '" + clubCode + "'"
+    if specialist is not "":
+        whereCon += " and userTrackingID = '" + specialist + "'"
+    if facilityName is not "":
+        whereCon += " and BusinessName = '" + facilityName + "'"
+    if inspectionYear is not "":
+        whereCon += " and year(DatePerformed) = " + inspectionYear
+    if inspectionMonth is not "":
+        whereCon += " and FacilityAnnualInspectionMonth = " + inspectionMonth
+    if "0" in  visitationType: # 1: Annual 2: Quarterly 3: AdHoc 4:Defeciency
+        whereCon = whereCon
+    else:
+        whereCon += " and visitationTypeName in ("
+        if "1" in  visitationType:
+            whereCon += "'Annual',"
+        if "2" in  visitationType:
+            whereCon += "'Quarterly',"
+        if "3" in  visitationType:
+            whereCon += "'AdHoc',"
+        if "4" in  visitationType:
+            whereCon += "'Deficiency',"
+        whereCon = whereCon[:-1] + ")"
+    if "0" in  visitationStatus: # 1: Annual 2: Quarterly 3: AdHoc 4:Defeciency
+        whereCon = whereCon
+    else:
+        whereCon += " and visitationStatusName in ("
+        if "1" in  visitationStatus:
+            whereCon += "'Not Started',"
+        if "2" in  visitationStatus:
+            whereCon += "'In Progress',"
+        if "3" in  visitationStatus:
+            whereCon += "'Overdue',"
+        if "4" in  visitationStatus:
+            whereCon += "'Overdue / In Progress',"
+        if "5" in  visitationStatus:
+            whereCon += "'Completed',"
+        whereCon = whereCon[:-1] + ")"
+    return DbConnection.queryDb("Select * from "+getSchemaOf(clientId)+".getVisitations where " + whereCon)
+
+
+@app.route('/resetPasswordPRG')
+def resetPasswordPRG():
+    email = str(request.args.get('email'))
+    result = DbConnection.getCountFromDB(
+        "select count(1) from AAAMaster.tblPRGUsers where lower(email) = '" + email + "'")
+    if result > 0:
+        randomPassword = getRandomPass()
+        sendMailTo(email,randomPassword)
+        updateStatement = "update AAAMaster.tblPRGUsers set temppassword = '" + randomPassword + "' where Email = '" + email + "'"
+        DbConnection.updateDB(updateStatement)
+        return 'Success'
+    else:
+        return "invalid email/username"
+
+
+@app.route('/changePasswordPRG')
+def changePasswordPRG():
+    email = str(request.args.get('email'))
+    password = str(request.args.get('password'))
+    updateStatement = "update AAAMaster.tblPRGUsers set temppassword = '', password = '" + password + "' where lower(Email) = loweR('" + email + "')"
+    DbConnection.updateDB(updateStatement)
+    return "Success"
