@@ -1,7 +1,11 @@
+import sys
+
 import pyodbc
 import datetime
 from json import dumps
-from InspectionAPIs import InspectionAPIs
+import json
+import os.path
+
 
 class DbConnection:
     connection = ''
@@ -28,8 +32,16 @@ class DbConnection:
 
     @staticmethod
     def queryDb(queryString):
-        dbConnection = DbConnection('localhost', '1401', 'Inspection', 'SA', 'InspectionDoesntHaveAStrongRootPass9211@')
+        my_path = os.path.abspath(os.path.dirname(__file__))
+        with open(my_path + '/../../config.json') as json_config:
+            data = json.load(json_config)
+            port = data["sql"]["port"]
+        sys.stderr.write(port)
+        json_config.close()
+
+        dbConnection = DbConnection('localhost', port, 'Inspection', 'SA', 'InspectionDoesntHaveAStrongRootPass9211@')
         connection = dbConnection.connect()
+
         try:
             cursor = connection.cursor()
             cursor.execute(queryString)
@@ -145,7 +157,15 @@ class DbConnection:
 
     @staticmethod
     def queryDbTypeTables(schemaname,clientid):
-        dbConnection = DbConnection('localhost', '1401', 'Inspection', 'SA', 'InspectionDoesntHaveAStrongRootPass9211@')
+        # dbConnection = DbConnection('localhost', '1401', 'Inspection', 'SA', 'InspectionDoesntHaveAStrongRootPass9211@')
+        my_path = os.path.abspath(os.path.dirname(__file__))
+        with open(my_path + '/../../config.json') as json_config:
+            data = json.load(json_config)
+            port = data["sql"]["port"]
+        sys.stderr.write(port)
+        json_config.close()
+
+        dbConnection = DbConnection('localhost', port, 'Inspection', 'SA', 'InspectionDoesntHaveAStrongRootPass9211@')
         connection = dbConnection.connect()
         resultDict = []
         # result = []
@@ -166,7 +186,15 @@ class DbConnection:
 
     @staticmethod
     def updateDB(updateStatement):
-        dbConnection = DbConnection('localhost', '1401', 'Inspection', 'SA', 'InspectionDoesntHaveAStrongRootPass9211@')
+        # dbConnection = DbConnection('localhost', '1401', 'Inspection', 'SA', 'InspectionDoesntHaveAStrongRootPass9211@')
+        my_path = os.path.abspath(os.path.dirname(__file__))
+        with open(my_path + '/../../config.json') as json_config:
+            data = json.load(json_config)
+            port = data["sql"]["port"]
+        sys.stderr.write(port)
+        json_config.close()
+
+        dbConnection = DbConnection('localhost', port, 'Inspection', 'SA', 'InspectionDoesntHaveAStrongRootPass9211@')
         conn = dbConnection.connect()
         try:
             cursor = conn.cursor()
@@ -283,7 +311,15 @@ class DbConnection:
 
     @staticmethod
     def getCountFromDB(queryString):
-        dbConnection = DbConnection('localhost', '1401', 'Inspection', 'SA', 'InspectionDoesntHaveAStrongRootPass9211@')
+        # dbConnection = DbConnection('localhost', '1401', 'Inspection', 'SA', 'InspectionDoesntHaveAStrongRootPass9211@')
+        my_path = os.path.abspath(os.path.dirname(__file__))
+        with open(my_path + '/../../config.json') as json_config:
+            data = json.load(json_config)
+            port = data["sql"]["port"]
+        sys.stderr.write(port)
+        json_config.close()
+
+        dbConnection = DbConnection('localhost', port, 'Inspection', 'SA', 'InspectionDoesntHaveAStrongRootPass9211@')
         conn = dbConnection.connect()
         try:
             cursor = conn.cursor()
